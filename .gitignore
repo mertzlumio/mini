@@ -1,0 +1,22 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Env/config
+.env
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Notes file (if personal)
+notes.txt
+
+# VS Code / IDE config
+.vscode/
+.idea/
+
+# Any folders/files not related to the app
+trash/
