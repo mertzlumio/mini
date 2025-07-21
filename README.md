@@ -36,16 +36,16 @@ A lightweight, always-on-top, multi-mode terminal-style GUI built with `tkinter`
 ```bash
 git clone https://github.com/mertzlumio/mini.git
 cd mini
-
-2. Install Dependencies
+```
+### 2. Install Dependencies
 
 Only standard libraries (tkinter, subprocess, os, etc.) are used.
 
 For Mistral support:
-
+```bash
 pip install requests
-
-3. config.py
+```
+### 3. config.py
 
 Edit config.py to set your Mistral API key and notes path:
 
@@ -62,10 +62,10 @@ NOTES_FILE = os.path.expanduser("~/.local/share/mini-console/notes.txt")
 
     NOTES_FILE path can be customized for portability.
 
-📦 Run It
-
+## 📦 Run It
+```bash
 python __main__.py
-
+```
 Use the input bar for commands, and watch the console print output or responses.
 🧹 .gitignore Tip
 
@@ -77,12 +77,12 @@ __pycache__/
 .env
 *.txt
 
-📜 License
+## 📜 License
 
 MIT License.
-🙋‍♂️ Author
+## 🙋‍♂️ Author
 
-Maintained by @YourUsername.
+Maintained by @mertzlumio.
 
 
 ---
