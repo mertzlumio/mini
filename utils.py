@@ -1,6 +1,6 @@
 import os
 
-def place_bottom_right(root, width=400, height=200, margin=10):
+def place_bottom_right(root, width=500, height=80, margin=10):
     root.update_idletasks()
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()

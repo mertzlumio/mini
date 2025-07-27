@@ -31,7 +31,15 @@ def on_enter(entry, console):
     if mode == "bash":
         output, current_dir = bash.run_bash_command(cmd, current_dir)
     elif mode == "chat":
-        output = chat.call_mistral(cmd)
+        response_data = chat.call_mistral(cmd)
+        output = response_data.get("response", "Sorry, something went wrong.")
+        print("DEBUG: type of response_data", type(response_data))
+        print("DEBUG: response_data", response_data)
+        if "task" in response_data:
+            task = response_data["task"]
+            notes_mode.add_note(task)
+            output += f"\n✅ Task added: {task}"
+            display_notes(console)
     elif mode == "notes":
         notes_mode.add_note(cmd)
         output = f"✅ Task added: {cmd}\n"

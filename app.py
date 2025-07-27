@@ -3,14 +3,23 @@ from utils import place_bottom_right
 from handlers import on_enter, on_up, on_down, toggle_mode, display_notes
 from modes.notes import load_notes
 import os
+
+# --- Centralized Window Configuration ---
+APP_WIDTH = 400
+APP_HEIGHT = 200
+APP_MARGIN = 10
+# ----------------------------------------
+
 def start_app():
     root = tk.Tk()
     root.overrideredirect(True)
     root.title("Mini Console")
-    root.geometry("400x150")
+    # REMOVED: root.geometry("500x80") - Dimensions are now handled by place_bottom_right
     root.resizable(False, False)
     root.attributes('-topmost', True)
-    place_bottom_right(root)
+
+    # Pass the defined dimensions to the utility function
+    place_bottom_right(root, width=APP_WIDTH, height=APP_HEIGHT, margin=APP_MARGIN)
 
     console = tk.Text(root, height=8, bg="#1e1e1e", fg="#dcdcdc", insertbackground="#dcdcdc", bd=0, highlightthickness=0)
     console.pack(fill=tk.BOTH, expand=True, padx=0, pady=(0, 0))
@@ -29,11 +38,12 @@ def start_app():
     root.bind_all("<Escape>", lambda e: root.destroy())
 
     def enforce_focus():
+        # This ensures the entry widget always has focus, useful for an overlay console
         if root.focus_get() != entry:
             entry.focus()
-        root.after(500, enforce_focus)
+        root.after(500, enforce_focus) # Check every 500ms
 
-    enforce_focus()
-    load_notes()
-    display_notes(console)
-    root.mainloop()
+    enforce_focus() # Start the focus enforcement loop
+    load_notes()    # Assuming this loads initial notes data
+    display_notes(console) # Assuming this displays the notes in the console
+    root.mainloop() # Start the Tkinter event loop
