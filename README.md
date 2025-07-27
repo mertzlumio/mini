@@ -18,6 +18,7 @@ A lightweight, always-on-top, multi-mode terminal-style GUI built with `tkinter`
 - 📒 **Notes**:
   - Notes are saved locally.
   - File path is defined in `config.py`.
+  - Additionally the system prompt for the cloud API also make the task addtion possible by recognising user propmt which implies tasks.
 
 - 🔐 **Minimal UI**:
   - Resizable and always-on-top.
@@ -56,7 +57,7 @@ MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY") or "your-api-key-here"
 MISTRAL_MODEL = "mistral-medium"
 MISTRAL_URL = "https://api.mistral.ai/v1/chat/completions"
 
-NOTES_FILE = os.path.expanduser("~/.local/share/mini-console/notes.txt")
+NOTES_FILE = os.path.expanduser("Your notes file path")
 
     You can also set the MISTRAL_API_KEY using an environment variable.
 
@@ -70,12 +71,6 @@ Use the input bar for commands, and watch the console print output or responses.
 🧹 .gitignore Tip
 
 Make sure to exclude sensitive or system files:
-
-# .gitignore
-__pycache__/
-*.log
-.env
-*.txt
 
 ## 📜 License
 
