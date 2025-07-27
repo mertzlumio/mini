@@ -18,7 +18,7 @@ A lightweight, always-on-top, multi-mode terminal-style GUI built with `tkinter`
 - 📒 **Notes**:
   - Notes are saved locally.
   - File path is defined in `config.py`.
-  - Additionally the system prompt for the cloud API also make the task addtion possible by recognising user propmt which implies tasks.
+  - Additionally the system prompt for the cloud API also make the task addtion possible by recognising user prompt which implies tasks.
 
 - 🔐 **Minimal UI**:
   - Resizable and always-on-top.
