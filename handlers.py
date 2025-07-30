@@ -9,68 +9,117 @@ modes = ["bash", "chat", "notes"]
 mode_index = 0
 mode = modes[mode_index]
 
-def toggle_mode(entry, console):
+# Mode colors and icons
+MODE_CONFIG = {
+    "bash": {"icon": "●", "color": "#f0f6fc"},
+    "chat": {"icon": "🤖", "color": "#58a6ff"}, 
+    "notes": {"icon": "📝", "color": "#3fb950"}
+}
+
+def toggle_mode(entry, console, mode_label, status_label, prompt_label):
+    """Enhanced mode switching with visual feedback"""
     global mode_index, mode
     mode_index = (mode_index + 1) % len(modes)
     mode = modes[mode_index]
-    entry.config(bg="#202020" if mode == "bash" else ("#002b36" if mode == "chat" else "#1c1f26"))
-    console.insert(END, f"🔁 Switched to {mode.upper()} mode\n")
+    
+    # Update mode display
+    config = MODE_CONFIG[mode]
+    mode_label.config(text=f"{config['icon']} {mode.upper()}")
+    prompt_label.config(fg=config['color'])
+    status_label.config(text=f"Switched to {mode}")
+    
+    # Visual feedback in console
+    console.insert(END, f"\n🔁 Mode: {config['icon']} {mode.upper()}\n", "accent")
+    
+    if mode == "notes":
+        display_notes(console)
+    
     console.see(END)
     return "break"
 
-def on_enter(entry, console):
+def on_enter(entry, console, mode_label, status_label):
+    """Clean command processing with better visual feedback"""
     global history, history_index, current_dir, mode
+    
     cmd = entry.get().strip()
     if not cmd:
         return
 
+    # Add to history
     history.append(cmd)
     history_index = len(history)
-    console.insert(END, f"[{mode}] > {cmd}\n")
+    
+    # Show command with clean formatting
+    console.insert(END, f"\n❯ {cmd}\n", "dim")
+    
+    # Update status
+    status_label.config(text="Processing...")
 
+    # Execute based on mode
     if mode == "bash":
         output, current_dir = bash.run_bash_command(cmd, current_dir)
+        console.insert(END, output + "\n")
+        
     elif mode == "chat":
+        status_label.config(text="Thinking...")
         response_data = chat.call_mistral(cmd)
+        
+        # Main response
         output = response_data.get("response", "Sorry, something went wrong.")
-        print("DEBUG: type of response_data", type(response_data))
-        print("DEBUG: response_data", response_data)
+        console.insert(END, f"🤖 {output}\n")
+        
+        # Handle task addition
         if "task" in response_data:
             task = response_data["task"]
             notes_mode.add_note(task)
-            output += f"\n✅ Task added: {task}"
+            console.insert(END, f"✅ Added task: {task}\n", "success")
+            console.insert(END, "\n📝 Updated TODO:\n", "accent")
             display_notes(console)
+            
     elif mode == "notes":
         notes_mode.add_note(cmd)
-        output = f"✅ Task added: {cmd}\n"
-        console.insert(END, output)
+        console.insert(END, f"✅ Added: {cmd}\n", "success")
+        console.insert(END, "\n📝 Your TODO List:\n", "accent")
         display_notes(console)
-        entry.delete(0, END)
-        return
 
-    console.insert(END, output + "\n")
+    # Reset status and clean up
+    status_label.config(text="Ready")
     console.see(END)
     entry.delete(0, END)
+    
+    # Keep console manageable (max 100 lines)
+    lines = console.get(1.0, END).count('\n')
+    if lines > 100:
+        console.delete(1.0, "10.0")
 
 def display_notes(console):
-    console.insert(END, "📝 TODO List:\n")
-    for i, note in enumerate(notes_mode.get_notes(), 1):
+    """Clean notes display"""
+    notes = notes_mode.get_notes()
+    if not notes:
+        console.insert(END, "  (no tasks yet)\n", "dim")
+        return
+        
+    for i, note in enumerate(notes, 1):
         console.insert(END, f"  {i}. {note}\n")
-    console.see(END)
 
 def on_up(entry):
+    """Navigate command history up"""
     global history_index
-    if history:
-        history_index = max(0, history_index - 1)
+    if history and history_index > 0:
+        history_index -= 1
         entry.delete(0, END)
         entry.insert(0, history[history_index])
     return "break"
 
 def on_down(entry):
+    """Navigate command history down"""
     global history_index
     if history:
-        history_index = min(len(history), history_index + 1)
-        entry.delete(0, END)
-        if history_index < len(history):
+        if history_index < len(history) - 1:
+            history_index += 1
+            entry.delete(0, END)
             entry.insert(0, history[history_index])
+        else:
+            history_index = len(history)
+            entry.delete(0, END)
     return "break"
