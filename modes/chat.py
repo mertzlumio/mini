@@ -1,57 +1,75 @@
-import requests
+import os
 import json
-from config import MISTRAL_API_KEY, MISTRAL_MODEL, MISTRAL_URL
+import requests
+from config import MISTRAL_API_KEY, MISTRAL_MODEL, MISTRAL_URL, CHAT_HISTORY_FILE, CHAT_HISTORY_LENGTH
+from prompts.base_system import get_base_system_prompt
+
+def load_history():
+    if os.path.exists(CHAT_HISTORY_FILE):
+        with open(CHAT_HISTORY_FILE, 'r') as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return []
+    return []
+
+def save_history(history):
+    with open(CHAT_HISTORY_FILE, 'w') as f:
+        json.dump(history, f, indent=2)
+
+def clear_history():
+    if os.path.exists(CHAT_HISTORY_FILE):
+        os.remove(CHAT_HISTORY_FILE)
 
 def call_mistral(prompt):
-    system_prompt = """
-You are a helpful assistant. Your job is to determine if the user's request contains a task that should be added to a to-do list.
+    if not MISTRAL_API_KEY:
+        return {"response": "MISTRAL_API_KEY not found. Please set it in your .env file."}
 
-If the user's request is a task, respond with a JSON object with two keys:
-- "task": a string containing the task.
-- "response": a string containing a friendly confirmation message.
+    history = load_history()
+    
+    # Add the new user message to the history
+    history.append({"role": "user", "content": prompt})
+    
+    # Trim history to the desired length
+    if len(history) > CHAT_HISTORY_LENGTH:
+        history = history[-CHAT_HISTORY_LENGTH:]
 
-If the user's request is not a task, respond with a JSON object with one key:
-- "response": a string containing your response.
+    # Prepare the messages for the API call
+    system_prompt = get_base_system_prompt()
+    messages_to_send = [{"role": "system", "content": system_prompt}] + history
 
-For example:
-User: add milk to my shopping list
-{"task": "buy milk", "response": "I've added 'buy milk' to your shopping list."}
-
-User: I need to finish my report by Friday.
-{"task": "finish report by Friday", "response": "Okay, I'll add 'finish report by Friday' to your to-do list."}
-
-User: What's the weather like today?
-{"response": "I can't check the weather, but I hope it's nice!"}
-
-Note: Respond ONLY with raw JSON. DO NOT use markdown formatting like ```json.
-"""
+    headers = {
+        "Authorization": f"Bearer {MISTRAL_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    data = {
+        "model": MISTRAL_MODEL,
+        "messages": messages_to_send,
+        "response_format": {"type": "json_object"}
+    }
+    
     try:
-        res = requests.post(
-            MISTRAL_URL,
-            headers={
-                "Authorization": f"Bearer {MISTRAL_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": MISTRAL_MODEL,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ]
-            },
-            timeout=15
-        )
-        res.raise_for_status()
+        response = requests.post(MISTRAL_URL, headers=headers, json=data)
+        response.raise_for_status()
         
-        response_text = res.json()["choices"][0]["message"]["content"].strip()
+        # The response from the API is a JSON string, which we need to parse
+        response_data = response.json()
+        assistant_message_str = response_data['choices'][0]['message']['content']
         
-        try:
-            # Try to parse the response as JSON
-            response_json = json.loads(response_text)
-            return response_json
-        except json.JSONDecodeError:
-            # If it's not JSON, return it as a regular string in the expected format
-            return {"response": response_text}
-
-    except Exception as e:
-        return {"response": f"⚠️ Mistral error: {str(e)}"}
+        # The content itself is a JSON string, so we parse it again
+        assistant_message_json = json.loads(assistant_message_str)
+        
+        # Save the full user and assistant exchange to history
+        # We save the structured JSON from the assistant, not just the text response
+        history.append({"role": "assistant", "content": assistant_message_str})
+        save_history(history)
+        
+        return assistant_message_json # Return the parsed JSON {"response": "...", "task": "..."}
+        
+    except requests.exceptions.RequestException as e:
+        return {"response": f"API Error: {e}"}
+    except (KeyError, IndexError):
+        return {"response": "Error: Invalid response format from API."}
+    except json.JSONDecodeError:
+        return {"response": "Error: Failed to decode JSON response from AI."}

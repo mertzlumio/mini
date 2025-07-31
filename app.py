@@ -38,7 +38,7 @@ def start_app():
     
     mode_label = tk.Label(
         status_frame,
-        text="● BASH",
+        text="[BASH]",
         bg=THEME["border"],
         fg=THEME["accent"],
         font=("Consolas", 8, "bold"),
@@ -100,7 +100,7 @@ def start_app():
     # Visual prompt
     prompt_label = tk.Label(
         entry_frame,
-        text="❯",
+        text=">",
         bg=THEME["bg"],
         fg=THEME["accent"], 
         font=("Cascadia Code", 10, "bold")
@@ -153,9 +153,9 @@ def start_app():
     load_notes()
     
     # Welcome message with better formatting
-    console.insert(tk.END, "🚀 Mini Player\n", "accent")
+    console.insert(tk.END, ">> Mini Player Ready\n", "accent")
     console.insert(tk.END, "Ctrl+M: Switch mode | Ctrl+L: Clear | Esc: Quit\n", "dim")
-    console.insert(tk.END, "-" * 50 + "\n", "dim")
+    console.insert(tk.END, "-" * 40 + "\n", "dim")
     
     display_notes(console)
     console.see(tk.END)
@@ -165,5 +165,5 @@ def start_app():
 def clear_console(console):
     """Clear console with a clean message"""
     console.delete(1.0, tk.END)
-    console.insert(tk.END, "Console cleared ✨\n", "dim")
+    console.insert(tk.END, "Console cleared\n", "dim")
     return "break"

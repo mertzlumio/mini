@@ -9,11 +9,11 @@ modes = ["bash", "chat", "notes"]
 mode_index = 0
 mode = modes[mode_index]
 
-# Mode colors and icons
+# Mode colors and symbols
 MODE_CONFIG = {
-    "bash": {"icon": "●", "color": "#f0f6fc"},
-    "chat": {"icon": "🤖", "color": "#58a6ff"}, 
-    "notes": {"icon": "📝", "color": "#3fb950"}
+    "bash": {"symbol": "[BASH]", "color": "#f0f6fc"},
+    "chat": {"symbol": "[CHAT]", "color": "#58a6ff"}, 
+    "notes": {"symbol": "[NOTE]", "color": "#3fb950"}
 }
 
 def toggle_mode(entry, console, mode_label, status_label, prompt_label):
@@ -24,12 +24,12 @@ def toggle_mode(entry, console, mode_label, status_label, prompt_label):
     
     # Update mode display
     config = MODE_CONFIG[mode]
-    mode_label.config(text=f"{config['icon']} {mode.upper()}")
+    mode_label.config(text=config['symbol'])
     prompt_label.config(fg=config['color'])
     status_label.config(text=f"Switched to {mode}")
     
     # Visual feedback in console
-    console.insert(END, f"\n🔁 Mode: {config['icon']} {mode.upper()}\n", "accent")
+    console.insert(END, f"\n>> Mode: {config['symbol']}\n", "accent")
     
     if mode == "notes":
         display_notes(console)
@@ -50,7 +50,7 @@ def on_enter(entry, console, mode_label, status_label):
     history_index = len(history)
     
     # Show command with clean formatting
-    console.insert(END, f"\n❯ {cmd}\n", "dim")
+    console.insert(END, f"\n> {cmd}\n", "dim")
     
     # Update status
     status_label.config(text="Processing...")
@@ -61,25 +61,32 @@ def on_enter(entry, console, mode_label, status_label):
         console.insert(END, output + "\n")
         
     elif mode == "chat":
+        if cmd.lower() in ("/new", "/reset"):
+            chat.clear_history()
+            console.insert(END, "✨ New chat session started.\n", "accent")
+            status_label.config(text="Ready")
+            entry.delete(0, END)
+            return
+
         status_label.config(text="Thinking...")
         response_data = chat.call_mistral(cmd)
         
         # Main response
         output = response_data.get("response", "Sorry, something went wrong.")
-        console.insert(END, f"🤖 {output}\n")
+        console.insert(END, f"AI: {output}\n")
         
         # Handle task addition
         if "task" in response_data:
             task = response_data["task"]
             notes_mode.add_note(task)
-            console.insert(END, f"✅ Added task: {task}\n", "success")
-            console.insert(END, "\n📝 Updated TODO:\n", "accent")
+            console.insert(END, f"[+] Added task: {task}\n", "success")
+            console.insert(END, "\nTODO List Updated:\n", "accent")
             display_notes(console)
             
     elif mode == "notes":
         notes_mode.add_note(cmd)
-        console.insert(END, f"✅ Added: {cmd}\n", "success")
-        console.insert(END, "\n📝 Your TODO List:\n", "accent")
+        console.insert(END, f"[+] Added: {cmd}\n", "success")
+        console.insert(END, "\nYour TODO List:\n", "accent")
         display_notes(console)
 
     # Reset status and clean up
