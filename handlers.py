@@ -84,10 +84,44 @@ def on_enter(entry, console, mode_label, status_label):
             display_notes(console)
             
     elif mode == "notes":
-        notes_mode.add_note(cmd)
-        console.insert(END, f"[+] Added: {cmd}\n", "success")
-        console.insert(END, "\nYour TODO List:\n", "accent")
-        display_notes(console)
+        # Handle special commands
+        if cmd.lower().startswith(("rm ", "remove ", "del ", "delete ")):
+            # Extract identifier (everything after the command)
+            parts = cmd.split(maxsplit=1)
+            if len(parts) > 1:
+                identifier = parts[1]
+                success, message, removed_note = notes_mode.remove_note(identifier)
+                
+                if success:
+                    console.insert(END, f"[✓] {message}\n", "success")
+                else:
+                    console.insert(END, f"[!] {message}\n", "warning")
+                
+                console.insert(END, "\nUpdated TODO List:\n", "accent")
+                display_notes(console)
+            else:
+                console.insert(END, "[!] Usage: rm <number> or rm <text>\n", "warning")
+                console.insert(END, "Examples: 'rm 1', 'rm groceries'\n", "dim")
+                
+        elif cmd.lower() in ("clear", "clear all", "reset"):
+            count = notes_mode.clear_all_notes()
+            console.insert(END, f"[✓] Cleared {count} tasks\n", "success")
+            console.insert(END, "\nTODO List (empty):\n", "accent")
+            display_notes(console)
+            
+        elif cmd.lower() in ("list", "show", "ls"):
+            console.insert(END, "\nYour TODO List:\n", "accent")
+            display_notes(console)
+            
+        elif cmd.lower() in ("help", "?"):
+            show_notes_help(console)
+            
+        else:
+            # Regular note addition
+            notes_mode.add_note(cmd)
+            console.insert(END, f"[+] Added: {cmd}\n", "success")
+            console.insert(END, "\nYour TODO List:\n", "accent")
+            display_notes(console)
 
     # Reset status and clean up
     status_label.config(text="Ready")
@@ -99,8 +133,27 @@ def on_enter(entry, console, mode_label, status_label):
     if lines > 100:
         console.delete(1.0, "10.0")
 
+def show_notes_help(console):
+    """Display help for notes mode"""
+    help_text = """
+Notes Mode Commands:
+  <task>          - Add new task
+  rm <number>     - Remove task by number (e.g., 'rm 1')
+  rm <text>       - Remove task by partial text match
+  list            - Show all tasks
+  clear           - Remove all tasks
+  help            - Show this help
+  
+Examples:
+  > Buy groceries
+  > rm 1
+  > rm groceries
+  > clear
+"""
+    console.insert(END, help_text, "dim")
+
 def display_notes(console):
-    """Clean notes display"""
+    """Clean notes display with numbering"""
     notes = notes_mode.get_notes()
     if not notes:
         console.insert(END, "  (no tasks yet)\n", "dim")
@@ -108,6 +161,9 @@ def display_notes(console):
         
     for i, note in enumerate(notes, 1):
         console.insert(END, f"  {i}. {note}\n")
+    
+    # Show total count
+    console.insert(END, f"\nTotal: {len(notes)} task{'s' if len(notes) != 1 else ''}\n", "dim")
 
 def on_up(entry):
     """Navigate command history up"""

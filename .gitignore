@@ -20,3 +20,6 @@ notes.txt
 
 # Any folders/files not related to the app
 trash/
+
+# History files
+history/
