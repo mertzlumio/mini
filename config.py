@@ -9,7 +9,7 @@ MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "mistral-medium")  # Default fallback
 MISTRAL_URL = os.getenv("MISTRAL_URL", "https://api.mistral.ai/v1/chat/completions")
 NOTES_FILE = os.path.expanduser(os.getenv("NOTES_FILE", "~/notes.txt"))  # Default fallback
-CHAT_HISTORY_FILE = os.path.expanduser(os.getenv("CHAT_HISTORY_FILE", "/home/chiro/Moose_Chamber/Mini_Player/mini/history/chat_history.json"))
+CHAT_HISTORY_FILE = os.path.expanduser(os.getenv("CHAT_HISTORY_FILE", "modes/chat/history/chat_history.json"))
 CHAT_HISTORY_LENGTH = int(os.getenv("CHAT_HISTORY_LENGTH", "20")) # Keep last 20 messages
 
 

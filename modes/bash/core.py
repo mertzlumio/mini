@@ -1,7 +1,8 @@
 import subprocess
 import os
 
-def run_bash_command(cmd, current_dir):
+def handle_command(cmd, current_dir):
+    """Handles bash commands."""
     if cmd.startswith("cd"):
         try:
             path = cmd.split(maxsplit=1)[1] if len(cmd.split()) > 1 else os.path.expanduser("~")
