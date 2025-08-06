@@ -1,11 +1,13 @@
 import os
 import json
 from tkinter import END
+import requests
 
 # Configuration
 from config import CHAT_HISTORY_FILE, CHAT_HISTORY_LENGTH
 from .api_client import call_mistral_api
 from .capabilities.agent import handle_agent_response
+from .history.history_sanitizer import trim_history_safely
 
 def load_history():
     if not os.path.exists(CHAT_HISTORY_FILE): 
@@ -18,7 +20,8 @@ def load_history():
 
 def save_history(history):
     if len(history) > CHAT_HISTORY_LENGTH:
-        history = history[-CHAT_HISTORY_LENGTH:]
+        console.insert(END, "🧹 Safely trimming history...\n", "dim")
+        history = trim_history_safely(history, max_messages=CHAT_HISTORY_LENGTH)
     
     os.makedirs(os.path.dirname(CHAT_HISTORY_FILE), exist_ok=True)
     with open(CHAT_HISTORY_FILE, 'w') as f:

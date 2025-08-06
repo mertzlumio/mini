@@ -10,8 +10,7 @@ def get_system_prompt():
 
 You can help users with:
 - General questions and conversations
-- Adding tasks to their notes list when they want to remember something
-- Searching the web for current information
+- Look for any tasks you are capable of doing 
 
 Be concise but helpful. When users ask you to remember something or add a task, use the add_task_to_notes function. When they need current information, use the search_web function.
 
