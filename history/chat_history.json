@@ -1,0 +1,29 @@
+[
+  {
+    "role": "user",
+    "content": "hi"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": null,
+    "content": "Hello! How can I assist you today?"
+  },
+  {
+    "role": "user",
+    "content": "what is your name"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": null,
+    "content": "I'm Mini, your helpful assistant! How can I help you today?"
+  },
+  {
+    "role": "user",
+    "content": "wht's my last question"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": null,
+    "content": "Your last question was, \"What is your name?\""
+  }
+]

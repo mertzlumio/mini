@@ -11,6 +11,7 @@ MISTRAL_URL = os.getenv("MISTRAL_URL", "https://api.mistral.ai/v1/chat/completio
 NOTES_FILE = os.path.expanduser(os.getenv("NOTES_FILE", "~/notes.txt"))  # Default fallback
 CHAT_HISTORY_FILE = os.path.expanduser(os.getenv("CHAT_HISTORY_FILE", "modes/chat/history/chat_history.json"))
 CHAT_HISTORY_LENGTH = int(os.getenv("CHAT_HISTORY_LENGTH", "20")) # Keep last 20 messages
+CHAT_HISTORY_DIR = "history/chat"
 
 
 # Validation

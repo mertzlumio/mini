@@ -2,52 +2,58 @@ import os
 import json
 from tkinter import END
 import requests
+from datetime import datetime
 
 # Configuration
-from config import CHAT_HISTORY_FILE, CHAT_HISTORY_LENGTH
+from config import CHAT_HISTORY_FILE, CHAT_HISTORY_LENGTH, CHAT_HISTORY_DIR
 from .api_client import call_mistral_api
 from .capabilities.agent import handle_agent_response
-from .history.history_sanitizer import trim_history_safely
+from .history.history_sanitizer import sanitize_and_trim_history
 
 def load_history():
-    if not os.path.exists(CHAT_HISTORY_FILE): 
-        return []
-    try:
-        with open(CHAT_HISTORY_FILE, 'r') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError): 
-        return []
+    """Always starts a new session, so returns an empty history."""
+    return []
 
 def save_history(history):
-    if len(history) > CHAT_HISTORY_LENGTH:
-        console.insert(END, "🧹 Safely trimming history...\n", "dim")
-        history = trim_history_safely(history, max_messages=CHAT_HISTORY_LENGTH)
+    """Saves the final chat history to a timestamped log file."""
+    if not history:
+        return # Don't save empty histories
+
+    # Sanitize one last time before saving
+    history = sanitize_and_trim_history(history, max_messages=CHAT_HISTORY_LENGTH * 2) # Save a bit more context
     
-    os.makedirs(os.path.dirname(CHAT_HISTORY_FILE), exist_ok=True)
-    with open(CHAT_HISTORY_FILE, 'w') as f:
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_filename = f"chat_log_{timestamp}.json"
+    log_path = os.path.join(CHAT_HISTORY_DIR, log_filename)
+    
+    os.makedirs(CHAT_HISTORY_DIR, exist_ok=True)
+    with open(log_path, 'w') as f:
         json.dump(history, f, indent=2)
+    print(f"Session saved to {log_path}")
+
 
 def clear_history():
-    if os.path.exists(CHAT_HISTORY_FILE): 
-        os.remove(CHAT_HISTORY_FILE)
+    """Clears the in-memory history for the current session."""
+    # This function is now mostly for the /new command, to clear the current session
+    # without having to restart the application.
+    return []
 
 def handle_command(cmd, console, status_label, entry):
     """Main chat handler - delegates to agent capabilities."""
     if cmd.lower() in ("/new", "/reset"):
-        clear_history()
+        # The actual history clearing will be handled by the caller
         console.insert(END, "✨ New chat session started.\n", "accent")
         status_label.config(text="Ready")
-        return
+        # Signal to the main app to clear the history list
+        return "clear_session"
 
     status_label.config(text="Thinking...")
     console.update_idletasks()
     
     history = load_history()
     
-    # Trim history if getting too long
-    if len(history) > 15:
-        console.insert(END, "🧹 Trimming conversation...\n", "dim")
-        history = history[-10:]
+    # Sanitize and trim history before sending to the API
+    history = sanitize_and_trim_history(history, max_messages=CHAT_HISTORY_LENGTH)
     
     history.append({"role": "user", "content": cmd})
 
@@ -67,4 +73,5 @@ def handle_command(cmd, console, status_label, entry):
         console.insert(END, f"❌ Error: {str(e)}\n", "error")
     finally:
         status_label.config(text="Ready")
-        save_history(history)
+        # The final history is saved by the main application loop upon exit.
+        # This prevents saving incomplete logs if the app crashes.

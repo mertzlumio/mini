@@ -1,13 +1,15 @@
 # modes/chat/capabilities/agent.py
 import json
 from tkinter import END
-from . import task_manager, web_search
+from . import task_manager, web_search, file_reader
 from ..api_client import call_mistral_api
 
 # Tool registry - maps tool names to actual functions
 TOOL_REGISTRY = {
     "add_task_to_notes": task_manager.add_task_to_notes,
     "search_web": web_search.search_web,
+    "read_file": file_reader.read_file,
+    "list_available_files": file_reader.list_available_files,
 }
 
 def handle_agent_response(response, history, console, status_label):
