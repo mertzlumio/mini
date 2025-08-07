@@ -23,5 +23,9 @@ trash/
 screenshots/
 
 # History files
-history/*
-!history/history_sanitizer.py
+# Ignore all .json files in history/
+history/*.json
+
+# Optional: also ignore .json files in subdirectories of history/
+history/**/*.json
+

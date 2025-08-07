@@ -1,0 +1,31 @@
+[
+  {
+    "role": "user",
+    "content": "can you check fro upcoming esports torunamnets"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": [
+      {
+        "id": "4iT6lJ3WO",
+        "function": {
+          "name": "search_web",
+          "arguments": "{\"query\": \"upcoming esports tournaments\"}"
+        },
+        "index": 0
+      }
+    ],
+    "content": ""
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "4iT6lJ3WO",
+    "name": "search_web",
+    "content": "🔍 Search results for 'upcoming esports tournaments':\n\n1. **Upcoming Esports Tournaments | Esports Charts**\n   🔗 https://escharts.com/upcoming-tournaments\n\n2. **Esports Calendar - Upcoming Tournaments and Events**\n   🔗 https://esportsarenagame.com/esports-calendar.html\n\n3. **Esports Event Calendar 2025│Best Esports Tournaments in 2025**\n   🔗 https://insider-gaming.com/esports-event-calendar-2025/\n"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": null,
+    "content": "I've found some information on upcoming esports tournaments. Here are a few sources where you can find details about upcoming events:\n\n1. Esports Charts has a list of upcoming tournaments: https://escharts.com/upcoming-tournaments\n2. Esports Arena Game provides an esports calendar: https://esportsarenagame.com/esports-calendar.html\n3. Insider Gaming offers an esports event calendar for 2025: https://insider-gaming.com/esports-event-calendar-2025/\n\nWould you like me to look up specific information about any of these sources or help with anything else related to esports tournaments?"
+  }
+]

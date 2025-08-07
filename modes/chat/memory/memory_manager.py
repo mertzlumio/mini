@@ -248,28 +248,41 @@ class SemanticMemory:
         return recent_facts[:limit]
     
     def get_context_for_conversation(self) -> str:
-        """Get relevant context to inject into new conversations"""
+        """Get relevant context to inject into new conversations - IMPROVED"""
         context_parts = []
         
-        # Add important recent facts
-        recent_facts = self.get_recent_facts(days=30, limit=10)
+        # ALWAYS include recent important facts (not just > 0.7 importance)
+        recent_facts = self.get_recent_facts(days=90, limit=15)  # Increased timeframe
         if recent_facts:
-            fact_summaries = [f"- {fact.content}" for fact in recent_facts if fact.importance > 0.7]
+            fact_summaries = [f"- {fact.content}" for fact in recent_facts if fact.importance > 0.5]  # Lowered threshold
             if fact_summaries:
-                context_parts.append("Recent important information:")
-                context_parts.extend(fact_summaries[:5])
+                context_parts.append("Key information about the user:")
+                context_parts.extend(fact_summaries)
         
-        # Add key preferences
+        # Add ALL preferences (not limited)
         if self.preferences:
             pref_items = []
             for key, pref in self.preferences.items():
                 if isinstance(pref, dict) and 'value' in pref:
                     pref_items.append(f"- {key}: {pref['value']}")
+                else:
+                    pref_items.append(f"- {key}: {pref}")
             if pref_items:
                 context_parts.append("\nUser preferences:")
-                context_parts.extend(pref_items[:3])
+                context_parts.extend(pref_items)
         
-        return '\n'.join(context_parts) if context_parts else ""
+        # Add recent conversation summaries for additional context
+        if self.summaries:
+            recent_summaries = self.summaries[-2:]  # Last 2 summaries
+            if recent_summaries:
+                context_parts.append("\nRecent conversation context:")
+                for summary in recent_summaries:
+                    summary_text = summary.get('summary', '')[:200] + "..." if len(summary.get('summary', '')) > 200 else summary.get('summary', '')
+                    context_parts.append(f"- {summary_text}")
+        
+        result = '\n'.join(context_parts) if context_parts else ""
+        print(f"DEBUG: Generated context ({len(result)} chars): {result[:100]}...")
+        return result
     
     def _save_facts(self):
         """Save facts to file"""
@@ -316,13 +329,14 @@ class MemoryManager:
     
     def get_enhanced_history(self, max_recent: int = 15) -> List[Dict]:
         """Get history enhanced with long-term memory context"""
-        # Get recent messages
         recent_messages = self.working_memory[-max_recent:] if self.working_memory else []
         
         # Get relevant context from long-term memory
         context = self.semantic_memory.get_context_for_conversation()
+        print(f"DEBUG: Context retrieved: {context}")  # ADD THIS LINE
         
         if context and recent_messages:
+        # ... rest of method
             # Inject context as a system message after any existing system message
             enhanced_history = []
             system_added = False

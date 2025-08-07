@@ -2,6 +2,20 @@ import tkinter as tk
 from utils import place_bottom_right
 from handlers import on_enter, on_up, on_down, toggle_mode
 from modes.notes import core as notes_core
+import threading # For pynput listener
+
+# Try pynput first for global hotkeys, then fallback to keyboard
+USE_PYNPUT = False
+try:
+    from pynput import keyboard as pynput_keyboard
+    USE_PYNPUT = True
+except ImportError:
+    print("pynput not found, falling back to 'keyboard' library for hotkeys.")
+    try:
+        import keyboard as simple_keyboard
+    except ImportError:
+        print("Error: Neither pynput nor keyboard library found. Please install one.")
+        exit()
 
 # Clean UI theme
 THEME = {
@@ -17,6 +31,41 @@ THEME = {
     "dim": "#7d8590"           # Dimmed text
 }
 
+# Global state for window visibility
+is_visible = True
+
+def toggle_window(root):
+    """
+    Toggles the visibility of the application window.
+    This function is called by the global hotkey.
+    """
+    global is_visible
+    if is_visible:
+        root.withdraw()
+    else:
+        root.deiconify()
+    is_visible = not is_visible
+
+# pynput specific hotkey handler
+def on_press(key, root, listener_ref):
+    """
+    Callback function for pynput.keyboard listener.
+    Handles global hotkeys.
+    """
+    try:
+        # Check for Ctrl+Shift+M for toggling window
+        if hasattr(key, 'char') and key.char == 'm' and \
+           key.ctrl and key.shift:
+            # Schedule the window toggle on the main Tkinter thread
+            root.after(0, lambda: toggle_window(root))
+        # Check for Escape key to exit (global)
+        elif key == pynput_keyboard.Key.esc:
+            root.after(0, root.destroy) # Destroy window on main thread
+            return False # Stop the pynput listener
+    except AttributeError:
+        # Handle special keys that don't have a .char attribute
+        pass
+
 def start_app():
     root = tk.Tk()
     root.overrideredirect(True)
@@ -24,7 +73,26 @@ def start_app():
     root.resizable(False, False)
     root.attributes('-topmost', True)
     root.attributes('-alpha', 0.95)
-    
+
+    # Hotkey setup based on which library is available
+    if USE_PYNPUT:
+        # pynput listener runs in a separate thread
+        listener = pynput_keyboard.Listener(on_press=lambda k: on_press(k, root, listener))
+        listener.start()
+        print("Using pynput for global hotkeys (Ctrl+Shift+M to toggle, Escape to exit).")
+    else:
+        # keyboard library setup
+        try:
+            simple_keyboard.add_hotkey('ctrl+shift+m', lambda: toggle_window(root))
+            print("Using 'keyboard' library for global hotkeys (Ctrl+Shift+M to toggle).")
+        except Exception as e:
+            print(f"Warning: Could not set global hotkey with 'keyboard' library: {e}")
+            print("You might need to run as root or adjust permissions on Linux.")
+        
+        # Tkinter's own Escape binding for local window closure
+        root.bind_all("<Escape>", lambda e: root.destroy())
+        print("Press Escape to exit the window locally.")
+
     place_bottom_right(root)
     
     main_frame = tk.Frame(root, bg=THEME["bg"])
@@ -76,7 +144,7 @@ def start_app():
     
     prompt_label = tk.Label(
         entry_frame, text=">", bg=THEME["bg"], fg=THEME["accent"], 
-        font=("Cascadia Code", 10, "bold")
+        font=("Cascadia Code", 9, "bold")
     )
     prompt_label.pack(side=tk.LEFT, padx=(8, 4), pady=4)
     
@@ -95,8 +163,6 @@ def start_app():
     entry.bind("<Down>", lambda e: on_down(entry))
     entry.bind("<Control-m>", lambda e: toggle_mode(entry, console, mode_label, status_label, prompt_label))
     
-    root.bind_all("<Escape>", lambda e: root.destroy())
-    
     notes_core.load_notes()
     
     console.insert(tk.END, ">> Mini Player Ready\n", "accent")
@@ -104,3 +170,8 @@ def start_app():
     console.see(tk.END)
     
     root.mainloop()
+
+    # Ensure pynput listener is stopped if it was started
+    if USE_PYNPUT and listener.is_alive():
+        listener.stop()
+        listener.join() # Wait for the thread to finish
