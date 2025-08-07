@@ -1,0 +1,49 @@
+[
+  {
+    "role": "user",
+    "content": "hi"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": null,
+    "content": "Hello! How can I assist you today?"
+  },
+  {
+    "role": "user",
+    "content": "my name is mertz lumio , can you remeber this"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": [
+      {
+        "id": "hflforT3L",
+        "function": {
+          "name": "remember_fact",
+          "arguments": "{\"fact_content\": \"User's name is Mertz Lumio\", \"importance\": 0.9, \"tags\": \"personal,identity,name\", \"context\": \"User introduced themselves\"}"
+        },
+        "index": 0
+      }
+    ],
+    "content": ""
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "hflforT3L",
+    "name": "remember_fact",
+    "content": "✅ Remembered: 'User's name is Mertz Lumio' (importance: 0.9)"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": null,
+    "content": "Of course, Mertz! I've remembered your name. How can I assist you today?"
+  },
+  {
+    "role": "user",
+    "content": "cool thta's all i wnated"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": null,
+    "content": "Great! If you need anything else in the future, feel free to ask. Have a nice day, Mertz!"
+  }
+]

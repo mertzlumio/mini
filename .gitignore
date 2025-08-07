@@ -23,4 +23,5 @@ trash/
 screenshots/
 
 # History files
-#history/
+history/*
+!history/history_sanitizer.py

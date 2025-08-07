@@ -1,0 +1,17 @@
+[
+  {
+    "content": "User's name is Mertz Lumio",
+    "timestamp": "2025-08-07T18:30:16.351422",
+    "memory_type": "fact",
+    "importance": 0.9,
+    "tags": [
+      "personal",
+      "identity",
+      "name"
+    ],
+    "context": {
+      "additional_context": "User introduced themselves"
+    },
+    "source_session": "20250807_183000"
+  }
+]

@@ -1,0 +1,40 @@
+[
+  {
+    "role": "user",
+    "content": "hi"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": null,
+    "content": "Hello! How can I assist you today?"
+  },
+  {
+    "role": "user",
+    "content": "i am mertz lumio remember me"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": [
+      {
+        "id": "ZJwkVAOJk",
+        "function": {
+          "name": "remember_fact",
+          "arguments": "{\"fact_content\": \"User's name is Mertz Lumio\", \"importance\": 0.9, \"tags\": \"personal,identity\", \"context\": \"User introduced themselves\"}"
+        },
+        "index": 0
+      }
+    ],
+    "content": ""
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "ZJwkVAOJk",
+    "name": "remember_fact",
+    "content": "Error: Tool 'remember_fact' not available."
+  },
+  {
+    "role": "assistant",
+    "tool_calls": null,
+    "content": "I'm sorry, but I currently don't have the capability to use the 'remember_fact' tool. However, I'm here to help with any other questions or information you might need! How can I assist you further?"
+  }
+]

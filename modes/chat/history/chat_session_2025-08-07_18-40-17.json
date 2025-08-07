@@ -1,0 +1,29 @@
+[
+  {
+    "role": "user",
+    "content": "hi"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": null,
+    "content": "Hello! How can I assist you today?"
+  },
+  {
+    "role": "user",
+    "content": "do you remeber me"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": null,
+    "content": "I don't have the ability to remember past interactions. However, I'm here to help you with any questions or topics you'd like to discuss right now. How can I assist you today?"
+  },
+  {
+    "role": "user",
+    "content": "what , but i ahve modules for save memory , and i don even have a json file stored fact of me as my name"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": null,
+    "content": "I apologize for the confusion. You're right that I have capabilities to save and recall information, but I don't have any stored information about you yet. We can start by saving some information if you'd like. Would you like to tell me your name so I can remember it for future conversations?"
+  }
+]
