@@ -1,0 +1,31 @@
+[
+  {
+    "role": "user",
+    "content": "can you see what's in the screen"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": [
+      {
+        "id": "f4Sg8Tbbt",
+        "function": {
+          "name": "capture_screen_context",
+          "arguments": "{\"save_screenshot\": true}"
+        },
+        "index": 0
+      }
+    ],
+    "content": ""
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "f4Sg8Tbbt",
+    "name": "capture_screen_context",
+    "content": "✅ Screen captured (82.69KB, 1024x640). Image ready for analysis."
+  },
+  {
+    "role": "assistant",
+    "tool_calls": null,
+    "content": "I've captured the screen. Would you like to analyze anything specific on the screen?"
+  }
+]

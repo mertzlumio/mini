@@ -1,6 +1,6 @@
 # Updated modes/chat/prompts/capability_prompts.py
 
-# Enhanced tool definitions for Mistral API with memory capabilities
+# Enhanced tool definitions for Mistral API with memory AND visual capabilities
 MISTRAL_TOOL_DEFINITIONS = [
     {
         "type": "function",
@@ -70,7 +70,7 @@ MISTRAL_TOOL_DEFINITIONS = [
             }
         }
     },
-    # New memory tools
+    # Memory tools
     {
         "type": "function",
         "function": {
@@ -161,6 +161,60 @@ MISTRAL_TOOL_DEFINITIONS = [
                 "required": []
             }
         }
+    },
+    # Visual/Screen Analysis tools
+    {
+        "type": "function",
+        "function": {
+            "name": "capture_screen_context",
+            "description": "Take a screenshot of the current screen for visual analysis. Use when user asks about what's on screen, needs help with visual content, or wants screen analysis.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "region": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "Optional region to capture as [x1, y1, x2, y2]. If not specified, captures full screen.",
+                        "minItems": 4,
+                        "maxItems": 4
+                    },
+                    "save_screenshot": {
+                        "type": "boolean",
+                        "description": "Whether to save the screenshot to disk (default: true)"
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_screen_dimensions",
+            "description": "Get the current screen resolution and dimensions. Useful for understanding screen layout.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_screen_region",
+            "description": "Capture and analyze a specific rectangular region of the screen. Useful when user wants to focus on a particular area.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x1": {"type": "integer", "description": "Left coordinate of region"},
+                    "y1": {"type": "integer", "description": "Top coordinate of region"},
+                    "x2": {"type": "integer", "description": "Right coordinate of region"},
+                    "y2": {"type": "integer", "description": "Bottom coordinate of region"}
+                },
+                "required": ["x1", "y1", "x2", "y2"]
+            }
+        }
     }
 ]
 
@@ -194,6 +248,14 @@ CAPABILITIES = {
         "description": "Search long-term memory for relevant information.",
         "parameters": [
             {"name": "query", "type": "string", "description": "Search query for memories"}
+        ]
+    },
+    "visual_analysis": {
+        "name": "capture_screen_context",
+        "description": "Capture and analyze screen content for visual assistance.",
+        "parameters": [
+            {"name": "region", "type": "array", "description": "Optional screen region [x1,y1,x2,y2]"},
+            {"name": "save_screenshot", "type": "boolean", "description": "Save to disk"}
         ]
     }
 }
