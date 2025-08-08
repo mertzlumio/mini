@@ -3,11 +3,12 @@ import os
 from modes.bash import core as bash_core
 from modes.chat import core as chat_core
 from modes.notes import core as notes_core
+from modes.music import core as music_core
 
 history = []
 history_index = -1
 current_dir = os.getcwd()
-modes = ["bash", "chat", "notes"]
+modes = ["bash", "chat", "notes", "music"]
 mode_index = 0
 mode = modes[mode_index]
 
@@ -15,7 +16,8 @@ mode = modes[mode_index]
 MODE_CONFIG = {
     "bash": {"symbol": "[BASH]", "color": "#f0f6fc"},
     "chat": {"symbol": "[CHAT]", "color": "#58a6ff"}, 
-    "notes": {"symbol": "[NOTE]", "color": "#3fb950"}
+    "notes": {"symbol": "[NOTE]", "color": "#3fb950"},
+    "music": {"symbol": "[MUSIC]", "color": "#d29922"}
 }
 
 def toggle_mode(entry, console, mode_label, status_label, prompt_label):
@@ -33,6 +35,8 @@ def toggle_mode(entry, console, mode_label, status_label, prompt_label):
     
     if mode == "notes":
         display_notes(console)
+    elif mode == "music":
+        display_music_status(console)
     
     console.see(END)
     return "break"
@@ -62,6 +66,10 @@ def on_enter(entry, console, mode_label, status_label):
     elif mode == "notes":
         notes_core.handle_command(cmd, console)
         status_label.config(text="Ready")
+        
+    elif mode == "music":
+        music_core.handle_command(cmd, console)
+        status_label.config(text="Ready")
 
     console.see(END)
     entry.delete(0, END)
@@ -77,6 +85,46 @@ def display_notes(console):
         console.insert(END, f"  {i}. {note}\n")
     
     console.insert(END, f"\nTotal: {len(notes)} task{'s' if len(notes) != 1 else ''}\n", "dim")
+
+def display_music_status(console):
+    """Display music player status when switching to music mode"""
+    try:
+        from modes.music.audio_engine import get_audio_engine
+        from modes.music.playlist import get_playlist_manager
+        
+        audio_engine = get_audio_engine()
+        playlist_manager = get_playlist_manager()
+        
+        if not audio_engine.is_available():
+            console.insert(END, "🎵 Music Player (pygame required)\n", "warning")
+            console.insert(END, "  Install: pip install pygame\n", "dim")
+            return
+        
+        # Show quick status
+        state = audio_engine.get_state()
+        current_track = playlist_manager.get_current_track()
+        playlist_info = playlist_manager.get_playlist_info()
+        
+        console.insert(END, f"🎵 Music Player Ready\n", "accent")
+        
+        if current_track:
+            console.insert(END, f"  Current: {current_track.title}\n", "dim")
+            console.insert(END, f"  Status: {state.value.title()}\n", "dim")
+        
+        track_count = playlist_info['total_tracks']
+        if track_count > 0:
+            console.insert(END, f"  Playlist: {track_count} track{'s' if track_count != 1 else ''}\n", "dim")
+        else:
+            console.insert(END, "  Playlist empty - use 'add ~/Music'\n", "dim")
+            
+        console.insert(END, "  Type 'help' for commands\n", "dim")
+        
+    except ImportError as e:
+        console.insert(END, "🎵 Music Player (dependencies missing)\n", "warning")
+        console.insert(END, f"  Error: {str(e)}\n", "dim")
+    except Exception as e:
+        console.insert(END, "🎵 Music Player (initialization error)\n", "error")
+        console.insert(END, f"  Error: {str(e)}\n", "dim")
 
 def on_up(entry):
     global history_index

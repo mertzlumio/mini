@@ -2,7 +2,8 @@ import tkinter as tk
 from utils import place_bottom_right
 from handlers import on_enter, on_up, on_down, toggle_mode
 from modes.notes import core as notes_core
-import threading # For pynput listener
+import threading
+import atexit
 
 # Try pynput first for global hotkeys, then fallback to keyboard
 USE_PYNPUT = False
@@ -66,6 +67,19 @@ def on_press(key, root, listener_ref):
         # Handle special keys that don't have a .char attribute
         pass
 
+def cleanup_on_exit():
+    """Cleanup function called when app exits"""
+    try:
+        # Cleanup music engine
+        from modes.music.audio_engine import cleanup_audio_engine
+        cleanup_audio_engine()
+        print("Music engine cleaned up")
+    except ImportError:
+        # Music mode not available
+        pass
+    except Exception as e:
+        print(f"Error during music cleanup: {e}")
+
 def start_app():
     root = tk.Tk()
     root.overrideredirect(True)
@@ -73,6 +87,9 @@ def start_app():
     root.resizable(False, False)
     root.attributes('-topmost', True)
     root.attributes('-alpha', 0.95)
+
+    # Register cleanup function
+    atexit.register(cleanup_on_exit)
 
     # Hotkey setup based on which library is available
     if USE_PYNPUT:
@@ -163,11 +180,22 @@ def start_app():
     entry.bind("<Down>", lambda e: on_down(entry))
     entry.bind("<Control-m>", lambda e: toggle_mode(entry, console, mode_label, status_label, prompt_label))
     
+    # Initialize modes
     notes_core.load_notes()
     
+    # Welcome message
     console.insert(tk.END, ">> Mini Player Ready\n", "accent")
+    console.insert(tk.END, "   Modes: BASH → CHAT → NOTES → MUSIC\n", "dim")
+    console.insert(tk.END, "   Ctrl+M to switch modes\n", "dim")
     notes_core.display_notes(console)
     console.see(tk.END)
+    
+    # Cleanup function for window close
+    def on_closing():
+        cleanup_on_exit()
+        root.destroy()
+    
+    root.protocol("WM_DELETE_WINDOW", on_closing)
     
     root.mainloop()
 
