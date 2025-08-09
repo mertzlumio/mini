@@ -1,4 +1,4 @@
-# Updated config.py - Now with Vision Model Support
+# Updated config.py - Separate models for text and vision
 import os
 from dotenv import load_dotenv
 
@@ -7,8 +7,11 @@ load_dotenv()
 # Configuration settings  
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 
-# Updated model selection - now defaults to vision-capable model
-MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "pixtral-12b-latest")  # Changed default to vision model!
+# TEXT MODEL - for regular chat (your existing model)
+MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "mistral-medium")
+
+# VISION MODEL - separate variable for screen analysis
+MISTRAL_VISION_MODEL = os.getenv("MISTRAL_VISION_MODEL", "pixtral-12b-latest")
 
 MISTRAL_URL = os.getenv("MISTRAL_URL", "https://api.mistral.ai/v1/chat/completions")
 NOTES_FILE = os.path.expanduser(os.getenv("NOTES_FILE", "~/notes.txt"))
@@ -23,9 +26,8 @@ AUTO_COMPRESS_THRESHOLD = int(os.getenv("AUTO_COMPRESS_THRESHOLD", "40"))
 FACT_IMPORTANCE_THRESHOLD = float(os.getenv("FACT_IMPORTANCE_THRESHOLD", "0.6"))
 
 # Vision settings
-VISION_MODEL_OVERRIDE = os.getenv("VISION_MODEL_OVERRIDE")  # Optional override for vision calls
-SCREENSHOT_QUALITY = int(os.getenv("SCREENSHOT_QUALITY", "75"))  # JPEG quality for screenshots
-MAX_IMAGE_DIMENSION = int(os.getenv("MAX_IMAGE_DIMENSION", "1024"))  # Max image size for API
+SCREENSHOT_QUALITY = int(os.getenv("SCREENSHOT_QUALITY", "75"))
+MAX_IMAGE_DIMENSION = int(os.getenv("MAX_IMAGE_DIMENSION", "1024"))
 
 # Validation
 if not MISTRAL_API_KEY:
@@ -34,7 +36,7 @@ if not MISTRAL_API_KEY:
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
-# Vision-capable models (as per Mistral docs)
+# Vision-capable models
 VISION_MODELS = [
     "pixtral-12b-latest",
     "pixtral-large-latest", 
@@ -43,20 +45,22 @@ VISION_MODELS = [
     "pixtral-12b-2409"
 ]
 
-def get_effective_vision_model():
+def get_vision_model():
     """Get the model to use for vision calls"""
-    if VISION_MODEL_OVERRIDE:
-        return VISION_MODEL_OVERRIDE
-    
-    # If current model supports vision, use it
-    if MISTRAL_MODEL in VISION_MODELS:
-        return MISTRAL_MODEL
-    
-    # Otherwise default to Pixtral 12B
-    return "pixtral-12b-latest"
+    return MISTRAL_VISION_MODEL
 
-def model_supports_vision(model_name=None):
+def get_text_model():
+    """Get the model to use for regular text calls"""
+    return MISTRAL_MODEL
+
+def supports_vision(model_name=None):
     """Check if a model supports vision"""
     if model_name is None:
-        model_name = MISTRAL_MODEL
+        model_name = MISTRAL_VISION_MODEL
     return model_name in VISION_MODELS
+
+# Print current configuration for debugging
+if DEBUG:
+    print(f"Text Model: {MISTRAL_MODEL}")
+    print(f"Vision Model: {MISTRAL_VISION_MODEL}")
+    print(f"Vision Support: {supports_vision()}")

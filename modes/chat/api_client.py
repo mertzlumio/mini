@@ -1,14 +1,17 @@
-# Updated modes/chat/api_client.py - Now with Vision Support!
+# Updated modes/chat/api_client.py - Using separate models
 import requests
 import time
-from config import MISTRAL_API_KEY, MISTRAL_MODEL, MISTRAL_URL
+from config import MISTRAL_API_KEY, MISTRAL_URL, get_text_model, get_vision_model
 from .prompts.system import get_system_prompt
 from .prompts.capability_prompts import get_mistral_tools
 
-_last_call_time = 0  # module-level private state
+_last_call_time = 0
 
 def call_mistral_api(history, min_interval=1.5):
-    """Standard Mistral API call for text-only conversations"""
+    """
+    Standard Mistral API call for text-only conversations
+    Uses your regular text model (mistral-medium)
+    """
     global _last_call_time
     now = time.time()
     elapsed = now - _last_call_time
@@ -17,13 +20,17 @@ def call_mistral_api(history, min_interval=1.5):
         wait_time = min_interval - elapsed
         time.sleep(wait_time)
 
+    # Use TEXT model for regular chat
+    text_model = get_text_model()
+    print(f"DEBUG: Using text model: {text_model}")
+
     messages = [{"role": "system", "content": get_system_prompt()}]
     for msg in history:
         if msg.get("role") in ["user", "assistant", "tool"]:
             messages.append(msg)
 
     data = {
-        "model": MISTRAL_MODEL,
+        "model": text_model,  # mistral-medium
         "messages": messages,
         "tools": get_mistral_tools(),
         "tool_choice": "auto"
@@ -41,8 +48,8 @@ def call_mistral_api(history, min_interval=1.5):
 
 def call_mistral_vision_api(history, image_base64, min_interval=1.5):
     """
-    Enhanced Mistral API call with vision support
-    Uses vision-capable models like pixtral-12b-latest
+    Mistral Vision API call for screen analysis
+    Uses separate vision model (pixtral-12b-latest)
     """
     global _last_call_time
     now = time.time()
@@ -52,23 +59,25 @@ def call_mistral_vision_api(history, image_base64, min_interval=1.5):
         wait_time = min_interval - elapsed
         time.sleep(wait_time)
 
-    # Use vision-capable model
+    # Use VISION model for screen analysis
     vision_model = get_vision_model()
+    print(f"DEBUG: Using vision model: {vision_model}")
     
     messages = [{"role": "system", "content": get_system_prompt()}]
     
-    # Add history messages
-    for msg in history:
-        if msg.get("role") in ["user", "assistant", "tool"]:
+    # Add recent history (but keep it simple for vision)
+    recent_history = history[-3:] if len(history) > 3 else history
+    for msg in recent_history:
+        if msg.get("role") in ["user", "assistant"]:
             messages.append(msg)
     
-    # Add the vision message with the captured screenshot
+    # Add the vision message
     vision_message = {
         "role": "user",
         "content": [
             {
                 "type": "text",
-                "text": "I've captured a screenshot of my current screen. Please analyze what you see and help me with any questions I have about the visual content."
+                "text": "I've captured my current screen. Please analyze what you see and help me understand the content."
             },
             {
                 "type": "image_url",
@@ -78,12 +87,12 @@ def call_mistral_vision_api(history, image_base64, min_interval=1.5):
     }
     messages.append(vision_message)
 
+    # Simplified request for vision (no tools to avoid conflicts)
     data = {
-        "model": vision_model,
+        "model": vision_model,  # pixtral-12b-latest
         "messages": messages,
-        "tools": get_mistral_tools(),
-        "tool_choice": "auto",
-        "max_tokens": 1024  # Reasonable limit for vision responses
+        "max_tokens": 1000,
+        "temperature": 0.7
     }
 
     headers = {
@@ -92,50 +101,27 @@ def call_mistral_vision_api(history, image_base64, min_interval=1.5):
     }
 
     try:
+        print(f"DEBUG: Making vision API call with {vision_model}")
         response = requests.post(MISTRAL_URL, headers=headers, json=data)
+        
+        if response.status_code != 200:
+            print(f"DEBUG: Vision API Status: {response.status_code}")
+            print(f"DEBUG: Vision API Response: {response.text}")
+        
         response.raise_for_status()
         _last_call_time = time.time()
         return response.json()['choices'][0]['message']
+        
     except Exception as e:
-        print(f"Vision API call failed: {e}")
-        # Fallback to regular API call
-        return call_mistral_api(history, min_interval)
+        print(f"DEBUG: Vision API failed: {e}")
+        # Fallback to text model with description
+        fallback_message = {
+            "role": "assistant", 
+            "content": "I captured your screen but couldn't analyze the visual content. However, I can still help you with text-based assistance."
+        }
+        return fallback_message
 
-def get_vision_model():
-    """
-    Get the appropriate vision model based on current configuration
-    Falls back to pixtral-12b-latest if current model doesn't support vision
-    """
-    from config import MISTRAL_MODEL
-    
-    # Vision-capable models from Mistral documentation
-    vision_models = [
-        "pixtral-12b-latest",
-        "pixtral-large-latest", 
-        "mistral-medium-latest",
-        "mistral-small-latest",
-        "pixtral-12b-2409"  # Specific version mentioned in docs
-    ]
-    
-    # If current model supports vision, use it
-    if MISTRAL_MODEL in vision_models:
-        return MISTRAL_MODEL
-    
-    # Otherwise, default to Pixtral 12B
-    print(f"Current model {MISTRAL_MODEL} doesn't support vision, using pixtral-12b-latest")
-    return "pixtral-12b-latest"
-
-def supports_vision(model_name=None):
-    """Check if a model supports vision capabilities"""
-    if model_name is None:
-        model_name = MISTRAL_MODEL
-    
-    vision_models = [
-        "pixtral-12b-latest",
-        "pixtral-large-latest", 
-        "mistral-medium-latest",
-        "mistral-small-latest",
-        "pixtral-12b-2409"
-    ]
-    
-    return model_name in vision_models
+def supports_vision():
+    """Check if vision is available"""
+    from config import supports_vision as config_supports_vision
+    return config_supports_vision()

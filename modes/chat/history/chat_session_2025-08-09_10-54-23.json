@@ -1,0 +1,39 @@
+[
+  {
+    "role": "user",
+    "content": "heloo"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": null,
+    "content": "Hello! How can I assist you today?"
+  },
+  {
+    "role": "user",
+    "content": "can you help me with the code on screen"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": [
+      {
+        "id": "kVx5DPndR",
+        "function": {
+          "name": "capture_screen_context",
+          "arguments": "{}"
+        },
+        "index": 0
+      }
+    ],
+    "content": ""
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "kVx5DPndR",
+    "name": "capture_screen_context",
+    "content": "✅ Screen captured (64.37KB, 1024x640). Image ready for analysis."
+  },
+  {
+    "role": "assistant",
+    "content": "I captured your screen but couldn't analyze the visual content. However, I can still help you with text-based assistance."
+  }
+]

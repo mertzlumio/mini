@@ -1,0 +1,11 @@
+[
+  {
+    "role": "user",
+    "content": "hello"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": null,
+    "content": "Do you need help with anything specific?"
+  }
+]
