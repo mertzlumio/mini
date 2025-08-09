@@ -2,8 +2,10 @@ import tkinter as tk
 from utils import place_bottom_right
 from handlers import on_enter, on_up, on_down, toggle_mode
 from modes.notes import core as notes_core
+from themes import get_current_theme, switch_theme, get_available_themes, get_theme_info, current_theme
 import threading
 import atexit
+import themes
 
 # Try pynput first for global hotkeys, then fallback to keyboard
 USE_PYNPUT = False
@@ -17,20 +19,6 @@ except ImportError:
     except ImportError:
         print("Error: Neither pynput nor keyboard library found. Please install one.")
         exit()
-
-# Clean UI theme
-THEME = {
-    "bg": "#0d1117",           # Dark background
-    "console_bg": "#161b22",   # Console background  
-    "entry_bg": "#21262d",     # Entry background
-    "text": "#f0f6fc",         # Main text
-    "accent": "#58a6ff",       # Accent color (blue)
-    "success": "#3fb950",      # Success (green)
-    "warning": "#d29922",      # Warning (yellow)
-    "error": "#f85149",        # Error (red)
-    "border": "#30363d",       # Border color
-    "dim": "#7d8590"           # Dimmed text
-}
 
 # Global state for window visibility
 is_visible = True
@@ -80,6 +68,45 @@ def cleanup_on_exit():
     except Exception as e:
         print(f"Error during music cleanup: {e}")
 
+def scroll_console(console, direction):
+    """Scroll console content with Ctrl+Arrow keys"""
+    if direction == "up":
+        console.yview_scroll(-3, "units")
+    elif direction == "down":
+        console.yview_scroll(3, "units")
+
+
+def cycle_theme(console, mode_label, status_label, prompt_label, entry):
+    """Cycle through available themes"""
+    themes_list = themes.get_available_themes()
+    current_key = themes.current_theme  # gets updated value
+    current_idx = themes_list.index(current_key)
+    next_idx = (current_idx + 1) % len(themes_list)
+    next_theme = themes_list[next_idx]
+    
+    if themes.switch_theme(next_theme):
+        apply_theme_to_widgets(console, mode_label, status_label, prompt_label, entry)
+        theme_info = themes.get_theme_info()
+        console.insert(tk.END, f"\n🎨 {theme_info}\n", "accent")
+        console.see(tk.END)
+
+def apply_theme_to_widgets(console, mode_label, status_label, prompt_label, entry):
+    """Apply current theme to all widgets"""
+    theme = get_current_theme()
+    
+    # Update widget colors
+    console.config(bg=theme["console_bg"], fg=theme["text"], 
+                  insertbackground=theme["accent"], selectbackground=theme["accent"])
+    entry.config(bg=theme["entry_bg"], fg=theme["text"], 
+                insertbackground=theme["accent"], selectbackground=theme["accent"])
+    
+    # Update console tags
+    console.tag_config("success", foreground=theme["success"])
+    console.tag_config("warning", foreground=theme["warning"]) 
+    console.tag_config("error", foreground=theme["error"])
+    console.tag_config("accent", foreground=theme["accent"])
+    console.tag_config("dim", foreground=theme["dim"])
+
 def start_app():
     root = tk.Tk()
     root.overrideredirect(True)
@@ -112,6 +139,9 @@ def start_app():
 
     place_bottom_right(root)
     
+    # Get current theme
+    THEME = get_current_theme()
+    
     main_frame = tk.Frame(root, bg=THEME["bg"])
     main_frame.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
     
@@ -134,18 +164,15 @@ def start_app():
     console_frame = tk.Frame(main_frame, bg=THEME["console_bg"])
     console_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=1)
     
-    scrollbar = tk.Scrollbar(console_frame, width=12)
-    scrollbar.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 2), pady=2)
-    
+    # NO SCROLLBAR - just the console
     console = tk.Text(
         console_frame, height=8, bg=THEME["console_bg"], fg=THEME["text"],
         insertbackground=THEME["accent"], bd=0, highlightthickness=0,
-        font=("Cascadia Code", 9), wrap=tk.WORD, yscrollcommand=scrollbar.set,
+        font=("Cascadia Code", 9), wrap=tk.WORD,
         selectbackground=THEME["accent"], selectforeground=THEME["bg"],
         padx=8, pady=6
     )
-    console.pack(fill=tk.BOTH, expand=True, padx=(8, 0), pady=2)
-    scrollbar.config(command=console.yview)
+    console.pack(fill=tk.BOTH, expand=True, padx=8, pady=2)
     
     console.tag_config("success", foreground=THEME["success"])
     console.tag_config("warning", foreground=THEME["warning"]) 
@@ -175,18 +202,27 @@ def start_app():
     entry.pack(fill=tk.X, side=tk.RIGHT, padx=(0, 8), pady=4)
     entry.focus()
     
+    # Bind events
     entry.bind("<Return>", lambda e: on_enter(entry, console, mode_label, status_label))
     entry.bind("<Up>", lambda e: on_up(entry))
     entry.bind("<Down>", lambda e: on_down(entry))
-    entry.bind("<Control-m>", lambda e: toggle_mode(entry, console, mode_label, status_label, prompt_label))
+    entry.bind("<Control-m>", lambda e: toggle_mode(entry, console, mode_label, status_label, prompt_label, THEME))
+    
+    # Console navigation with Ctrl+Arrow keys
+    entry.bind("<Control-Up>", lambda e: scroll_console(console, "up"))
+    entry.bind("<Control-Down>", lambda e: scroll_console(console, "down"))
+    
+    # Theme switching with Ctrl+T
+    entry.bind("<Control-t>", lambda e: cycle_theme(console, mode_label, status_label, prompt_label, entry))
     
     # Initialize modes
     notes_core.load_notes()
     
     # Welcome message
     console.insert(tk.END, ">> Mini Player Ready\n", "accent")
+    console.insert(tk.END, f"   Theme: {THEME['name']}\n", "dim")
     console.insert(tk.END, "   Modes: BASH → CHAT → NOTES → MUSIC\n", "dim")
-    console.insert(tk.END, "   Ctrl+M to switch modes\n", "dim")
+    console.insert(tk.END, "   Ctrl+M=modes • Ctrl+T=themes • Ctrl+↑↓=scroll\n", "dim")
     notes_core.display_notes(console)
     console.see(tk.END)
     

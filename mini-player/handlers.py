@@ -4,6 +4,7 @@ from modes.bash import core as bash_core
 from modes.chat import core as chat_core
 from modes.notes import core as notes_core
 from modes.music import core as music_core
+from themes import get_current_theme
 
 history = []
 history_index = -1
@@ -12,24 +13,20 @@ modes = ["bash", "chat", "notes", "music"]
 mode_index = 0
 mode = modes[mode_index]
 
-# Mode colors and symbols
-MODE_CONFIG = {
-    "bash": {"symbol": "[BASH]", "color": "#f0f6fc"},
-    "chat": {"symbol": "[CHAT]", "color": "#58a6ff"}, 
-    "notes": {"symbol": "[NOTE]", "color": "#3fb950"},
-    "music": {"symbol": "[MUSIC]", "color": "#d29922"}
-}
-
-def toggle_mode(entry, console, mode_label, status_label, prompt_label):
-    """Enhanced mode switching with visual feedback"""
+def toggle_mode(entry, console, mode_label, status_label, prompt_label, theme=None):
+    """Enhanced mode switching with theme support"""
     global mode_index, mode
     mode_index = (mode_index + 1) % len(modes)
     mode = modes[mode_index]
     
-    config = MODE_CONFIG[mode]
-    mode_label.config(text=config['symbol'])
-    prompt_label.config(fg=config['color'])
-    status_label.config(text=f"Switched to {mode}")
+    # Get current theme config
+    if theme is None:
+        theme = get_current_theme()
+    
+    config = theme["mode_config"][mode]
+    mode_label.config(text=config['symbol'], fg=config['color'])
+    prompt_label.config(text=config['prompt'], fg=config['color'])
+    status_label.config(text="Ready")
     
     console.insert(END, f"\n>> Mode: {config['symbol']}\n", "accent")
     
@@ -47,6 +44,35 @@ def on_enter(entry, console, mode_label, status_label):
     
     cmd = entry.get().strip()
     if not cmd:
+        return
+
+    # Check for theme commands first
+    if cmd.startswith("/theme "):
+        theme_name = cmd.split(maxsplit=1)[1]
+        from themes import switch_theme, get_available_themes
+        if switch_theme(theme_name):
+            # Get prompt_label reference (we need to pass it)
+            # For now, just show confirmation
+            console.insert(END, f"\n├► {cmd}\n", "dim")
+            console.insert(END, f"🎨 Switched to {theme_name} theme\n", "accent")
+            console.insert(END, "Restart app to see full theme changes\n", "dim")
+        else:
+            console.insert(END, f"\n├► {cmd}\n", "dim")
+            themes_list = ", ".join(get_available_themes())
+            console.insert(END, f"❌ Unknown theme. Available: {themes_list}\n", "error")
+        console.see(END)
+        entry.delete(0, END)
+        return
+    
+    if cmd == "/themes":
+        console.insert(END, f"\n├► {cmd}\n", "dim")
+        from themes import get_available_themes, get_theme_info
+        console.insert(END, f"{get_theme_info()}\n", "accent")
+        themes_list = ", ".join(get_available_themes())
+        console.insert(END, f"Available themes: {themes_list}\n", "dim")
+        console.insert(END, "Usage: /theme <name> (restart to apply)\n", "dim")
+        console.see(END)
+        entry.delete(0, END)
         return
 
     history.append(cmd)
@@ -75,7 +101,7 @@ def on_enter(entry, console, mode_label, status_label):
     entry.delete(0, END)
 
 def display_notes(console):
-    """Clean notes display with numbering"""
+    """Clean notes display - theme-agnostic"""
     notes = notes_core.get_notes()
     if not notes:
         console.insert(END, "  (no tasks yet)\n", "dim")
@@ -87,7 +113,7 @@ def display_notes(console):
     console.insert(END, f"\nTotal: {len(notes)} task{'s' if len(notes) != 1 else ''}\n", "dim")
 
 def display_music_status(console):
-    """Display music player status when switching to music mode"""
+    """Display music player status - theme-agnostic"""
     try:
         from modes.music.audio_engine import get_audio_engine
         from modes.music.playlist import get_playlist_manager

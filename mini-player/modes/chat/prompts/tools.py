@@ -6,13 +6,18 @@ MISTRAL_TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "Read the contents of a file to understand capabilities, configurations, or documentation. Useful for self-discovery and understanding available features.",
+            "description": "Read the contents of a file with enhanced security and formatting. Can read Python, JSON, text, markdown, and config files. Provides helpful error messages and suggestions.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "file_path": {
                         "type": "string", 
-                        "description": "Path to the file to read. Can read from modes/chat/capabilities/, modes/chat/prompts/, config/, or docs/ directories."
+                        "description": "Path to the file to read. Can be relative (e.g., 'modes/chat/core.py') or use directory shortcuts."
+                    },
+                    "max_size_kb": {
+                        "type": "integer",
+                        "description": "Maximum file size to read in KB (default: 500). Prevents memory issues with large files.",
+                        "default": 500
                     }
                 },
                 "required": ["file_path"]
@@ -23,15 +28,55 @@ MISTRAL_TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "list_available_files", 
-            "description": "List files in a directory that can be read for information discovery.",
+            "description": "List files in a directory with type information and sizes. Great for discovering what files are available.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "directory": {
                         "type": "string",
-                        "description": "Directory to list files from (default: modes/chat/capabilities/)"
+                        "description": "Directory to list files from. Popular options: 'modes/chat/capabilities', 'modes/chat/prompts', 'modes', 'config', 'docs'",
+                        "default": "modes/chat/capabilities"
+                    },
+                    "recursive": {
+                        "type": "boolean",
+                        "description": "Whether to search subdirectories recursively",
+                        "default": False
                     }
                 },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_files",
+            "description": "Search for files by name or content. Useful for finding specific functionality or code.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search term to look for in filenames or file content"
+                    },
+                    "search_dirs": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Directories to search in (optional, defaults to main directories)"
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_project_structure",
+            "description": "Get an overview of the entire Mini-Player project structure. Useful for understanding the codebase organization.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
                 "required": []
             }
         }
