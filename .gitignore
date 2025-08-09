@@ -32,6 +32,7 @@ screenshots/
 # Chat history and memory data (keep only the infrastructure)
 # Include the history sanitizer but exclude actual chat sessions
 mini-player/modes/chat/history/*.json
+mini-player/modes/chat/history/music/*.json
 !mini-player/modes/chat/history/history_sanitizer.py
 
 # Memory data - exclude all stored facts, summaries, preferences

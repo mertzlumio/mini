@@ -100,7 +100,7 @@ def typewriter_effect(console, text, delay=0.02):
     
     type_char()
 
-def display_response_progressively(console, response_text, prefix="AI: "):
+def display_response_progressively(console, response_text, prefix="Mini: "):
     """
     Display AI response with better formatting and progressive reveal
     """
@@ -139,7 +139,7 @@ def show_thinking_animation(console, status_label):
     def animate():
         if thinking_active[0]:
             char = thinking_chars[char_index[0] % len(thinking_chars)]
-            status_label.config(text=f"Thinking {char}")
+            status_label.config(text=f"Mini Thinking {char}")
             char_index[0] += 1
             # Schedule next animation frame
             console.after(150, animate)
@@ -254,7 +254,7 @@ def display_agent_response(response, session_history, console, status_label):
         return
     
     # Handle tool-based responses (existing agent logic but with better display)
-    console.insert(END, "🛠️ Agent working...\n", "accent")
+    console.insert(END, "🛠️ Mini working...\n", "accent")
     console.update_idletasks()
     
     # Use existing agent handler but improve the display
