@@ -5,14 +5,14 @@ import platform
 
 # --- Configuration ---
 VENV_DIR = ".venv"
-APP_DIR = os.path.dirname(os.path.abspath(__file__)) # Directory where this script is
-MAIN_APP_PATH = os.path.join(APP_DIR, "__main__.py")
+APP_DIR = os.path.dirname(os.path.abspath(__file__)) # Root directory where this script is
+MAIN_APP_PATH = os.path.join(APP_DIR, "mini-player", "__main__.py")  # Updated path
 
 # Required Python packages
 REQUIRED_PACKAGES = [
     "python-dotenv",
-    # pynput and python-xlib are preferred for global hotkeys on Linux
-    # keyboard is a fallback and generally works well on Windows/macOS
+    "requests",
+    "Pillow",
     "pynput",
     "python-xlib" # For pynput on Linux (Xorg)
 ]
@@ -120,8 +120,8 @@ def setup_and_run():
     print("Press Escape to exit the application (globally if pynput is used, or locally if keyboard is used).")
     
     # Execute the main application using the virtual environment's Python
-    # This needs to be run in the foreground to keep the app alive
-    run_command([venv_python_executable, MAIN_APP_PATH], cwd=APP_DIR)
+    # Working directory should be the mini-player folder for imports to work
+    run_command([venv_python_executable, "__main__.py"], cwd=os.path.join(APP_DIR, "mini-player"))
 
     print_status("Mini Player exited.")
 

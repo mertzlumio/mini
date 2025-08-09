@@ -3,7 +3,12 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Env/config
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment variables and config
 .env
 *.log
 
@@ -11,21 +16,39 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Notes file (if personal)
+# Personal notes file
 notes.txt
 
-# VS Code / IDE config
+# IDE/Editor config
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Any folders/files not related to the app
+# Folders/files not related to the app
 trash/
 screenshots/
 
-# History files
-# Ignore all .json files in history/
-history/*.json
+# Chat history and memory data (keep only the infrastructure)
+# Include the history sanitizer but exclude actual chat sessions
+mini-player/modes/chat/history/*.json
+!mini-player/modes/chat/history/history_sanitizer.py
 
-# Optional: also ignore .json files in subdirectories of history/
-history/**/*.json
+# Memory data - exclude all stored facts, summaries, preferences
+mini-player/modes/chat/history/memory/
+mini-player/modes/chat/memory/memory/
 
+# Any other chat data directories
+chat_data/
+mini_chat_data/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Logs
+*.log
+logs/
+
+# Test outputs
+test_screenshots/

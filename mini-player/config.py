@@ -1,8 +1,11 @@
-# Updated config.py - FIXED vision model names
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+# Load .env from project root (one level up from this file)
+project_root = Path(__file__).parent.parent
+env_path = project_root / '.env'
+load_dotenv(env_path)
 
 # Configuration settings  
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
@@ -60,6 +63,8 @@ def supports_vision(model_name=None):
 
 # Print current configuration for debugging
 if DEBUG:
+    print(f"Project root: {project_root}")
+    print(f"Loaded .env from: {env_path}")
     print(f"Text Model: {MISTRAL_MODEL}")
     print(f"Vision Model: {MISTRAL_VISION_MODEL}")
     print(f"Vision Support: {supports_vision()}")
