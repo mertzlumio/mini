@@ -30,15 +30,12 @@ trash/
 screenshots/
 
 # Chat history and memory data (keep only the infrastructure)
-# Include the history sanitizer but exclude actual chat sessions
-mini-player/modes/chat/history/*.json
-mini-player/modes/chat/history/music/*.json
-!mini-player/modes/chat/history/history_sanitizer.py
+# Ignore everything in history folder
+history/*
 
-# Memory data - exclude all stored facts, summaries, preferences
-mini-player/modes/chat/history/memory/
-mini-player/modes/chat/history/music/
-mini-player/modes/chat/memory/memory/
+# But keep the Python file
+!history/history_sanitizer.py
+
 
 # Any other chat data directories
 chat_data/
