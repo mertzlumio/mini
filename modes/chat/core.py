@@ -1,9 +1,12 @@
+# Updated modes/chat/core.py - Progressive text display and better UX
 import os
 import json
 from tkinter import END
 import requests
 from datetime import datetime
 import atexit
+import threading
+import time
 
 from config import CHAT_HISTORY_DIR, CHAT_HISTORY_LENGTH
 from .api_client import call_mistral_api
@@ -83,8 +86,69 @@ def add_to_session_history(message):
         compressed_count = memory_manager.compress_working_memory(keep_recent=15)
         print(f"Auto-compressed {compressed_count} old messages to long-term memory")
 
+def typewriter_effect(console, text, delay=0.02):
+    """
+    Display text with typewriter effect for better UX
+    """
+    def type_char(char_index=0):
+        if char_index < len(text):
+            console.insert(END, text[char_index])
+            console.see(END)
+            console.update_idletasks()
+            # Schedule next character
+            console.after(int(delay * 1000), lambda: type_char(char_index + 1))
+    
+    type_char()
+
+def display_response_progressively(console, response_text, prefix="AI: "):
+    """
+    Display AI response with better formatting and progressive reveal
+    """
+    # Add the prefix immediately
+    console.insert(END, prefix)
+    console.see(END)
+    console.update_idletasks()
+    
+    # Split into chunks for progressive display
+    chunks = response_text.split('\n\n')  # Split by double newlines (paragraphs)
+    
+    for i, chunk in enumerate(chunks):
+        if chunk.strip():  # Skip empty chunks
+            # Display chunk with slight delay
+            time.sleep(0.1)  # Small pause between paragraphs
+            console.insert(END, chunk)
+            
+            # Add paragraph break if not the last chunk
+            if i < len(chunks) - 1:
+                console.insert(END, '\n\n')
+            
+            console.see(END)
+            console.update_idletasks()
+    
+    console.insert(END, '\n')  # Final newline
+    console.see(END)
+
+def show_thinking_animation(console, status_label):
+    """
+    Show animated thinking indicator
+    """
+    thinking_chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+    char_index = [0]  # Use list to make it mutable in nested function
+    thinking_active = [True]
+    
+    def animate():
+        if thinking_active[0]:
+            char = thinking_chars[char_index[0] % len(thinking_chars)]
+            status_label.config(text=f"Thinking {char}")
+            char_index[0] += 1
+            # Schedule next animation frame
+            console.after(150, animate)
+    
+    animate()
+    return thinking_active  # Return reference to stop animation
+
 def handle_command(cmd, console, status_label, entry):
-    """Enhanced chat handler with memory commands"""
+    """Enhanced chat handler with progressive display and better UX"""
     memory_manager = get_memory_manager()
     
     # Memory-specific commands
@@ -140,8 +204,8 @@ def handle_command(cmd, console, status_label, entry):
         status_label.config(text="Ready")
         return
 
-    # Regular chat processing
-    status_label.config(text="Thinking...")
+    # Regular chat processing with improved UX
+    thinking_animation = show_thinking_animation(console, status_label)
     console.update_idletasks()
     
     # Get enhanced history (includes long-term memory context)
@@ -152,25 +216,62 @@ def handle_command(cmd, console, status_label, entry):
     history.append(user_message)
     add_to_session_history(user_message)
 
-    try:
-        console.insert(END, "🤔 Processing...\n", "dim")
-        
-        # Get response from API (now with memory context!)
-        response = call_mistral_api(history)
-        
-        # Add assistant response to memory
-        add_to_session_history(response)
-        
-        # Handle response (agent capabilities)
-        handle_agent_response(response, memory_manager.working_memory, console, status_label)
+    def process_in_background():
+        try:
+            # Get response from API (now with memory context!)
+            response = call_mistral_api(history)
+            
+            # Stop thinking animation
+            thinking_animation[0] = False
+            
+            # Add assistant response to memory
+            add_to_session_history(response)
+            
+            # Display response with better UX
+            console.after(0, lambda: display_agent_response(response, memory_manager.working_memory, console, status_label))
 
-    except requests.exceptions.HTTPError as e:
-        console.insert(END, f"❌ API Error {e.response.status_code}\n", "error")
-        console.insert(END, f"Details: {e.response.text[:200]}...\n", "dim")
-    except Exception as e:
-        console.insert(END, f"❌ Error: {str(e)}\n", "error")
-    finally:
+        except requests.exceptions.HTTPError as e:
+            thinking_animation[0] = False
+            console.after(0, lambda: handle_api_error(e, console, status_label))
+        except Exception as e:
+            thinking_animation[0] = False
+            console.after(0, lambda: handle_general_error(e, console, status_label))
+
+    # Process API call in background thread
+    thread = threading.Thread(target=process_in_background, daemon=True)
+    thread.start()
+
+def display_agent_response(response, session_history, console, status_label):
+    """Display agent response with progressive text and better formatting"""
+    # Check if AI decided to use tools
+    tool_calls = response.get("tool_calls")
+    
+    if not tool_calls:
+        # Simple response with progressive display
+        content = response.get("content", "I'm not sure how to respond.")
+        display_response_progressively(console, content)
         status_label.config(text="Ready")
+        return
+    
+    # Handle tool-based responses (existing agent logic but with better display)
+    console.insert(END, "🛠️ Agent working...\n", "accent")
+    console.update_idletasks()
+    
+    # Use existing agent handler but improve the display
+    handle_agent_response(response, session_history, console, status_label)
+    status_label.config(text="Ready")
+
+def handle_api_error(e, console, status_label):
+    """Handle API errors with better messaging"""
+    console.insert(END, f"❌ API Error {e.response.status_code}\n", "error")
+    error_details = e.response.text[:200] + "..." if len(e.response.text) > 200 else e.response.text
+    console.insert(END, f"Details: {error_details}\n", "dim")
+    status_label.config(text="Ready")
+
+def handle_general_error(e, console, status_label):
+    """Handle general errors"""
+    console.insert(END, f"❌ Error: {str(e)}\n", "error")
+    status_label.config(text="Ready")
 
 # Register exit handler
 def _exit_handler():

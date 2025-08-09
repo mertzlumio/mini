@@ -1,4 +1,4 @@
-# Updated config.py - Separate models for text and vision
+# Updated config.py - FIXED vision model names
 import os
 from dotenv import load_dotenv
 
@@ -10,8 +10,8 @@ MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 # TEXT MODEL - for regular chat (your existing model)
 MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "mistral-medium")
 
-# VISION MODEL - separate variable for screen analysis
-MISTRAL_VISION_MODEL = os.getenv("MISTRAL_VISION_MODEL", "pixtral-12b-latest")
+# VISION MODEL - FIXED: Use correct vision model name
+MISTRAL_VISION_MODEL = os.getenv("MISTRAL_VISION_MODEL", "pixtral-large-latest")
 
 MISTRAL_URL = os.getenv("MISTRAL_URL", "https://api.mistral.ai/v1/chat/completions")
 NOTES_FILE = os.path.expanduser(os.getenv("NOTES_FILE", "~/notes.txt"))
@@ -36,13 +36,12 @@ if not MISTRAL_API_KEY:
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
-# Vision-capable models
+# FIXED: Updated vision-capable models list (December 2024)
 VISION_MODELS = [
-    "pixtral-12b-latest",
-    "pixtral-large-latest", 
-    "mistral-medium-latest",
-    "mistral-small-latest",
-    "pixtral-12b-2409"
+    "pixtral-large-latest",     # Current best vision model
+    "pixtral-12b-latest",       # Alternative vision model  
+    "pixtral-12b-2409",         # Specific version
+    # Note: mistral-medium/small models don't actually support vision
 ]
 
 def get_vision_model():
@@ -64,3 +63,9 @@ if DEBUG:
     print(f"Text Model: {MISTRAL_MODEL}")
     print(f"Vision Model: {MISTRAL_VISION_MODEL}")
     print(f"Vision Support: {supports_vision()}")
+    print(f"Available Vision Models: {VISION_MODELS}")
+
+# ADDITIONAL: Validate vision model
+if MISTRAL_VISION_MODEL not in VISION_MODELS:
+    print(f"WARNING: Vision model '{MISTRAL_VISION_MODEL}' may not support vision!")
+    print(f"Consider using one of: {VISION_MODELS}")

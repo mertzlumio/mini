@@ -1,4 +1,4 @@
-# Updated modes/chat/capabilities/agent.py - Now with Real Mistral Vision!
+# Updated modes/chat/capabilities/agent.py - FIXED Vision Integration
 import json
 from tkinter import END
 from . import task_manager, web_search, file_reader, memory_tools, visual_assistant
@@ -22,7 +22,7 @@ TOOL_REGISTRY = {
 
 def handle_agent_response(response, session_history, console, status_label):
     """
-    Enhanced agent handler with REAL Mistral Vision support
+    FIXED: Enhanced agent handler with proper vision integration
     """
     # Check if AI decided to use tools
     tool_calls = response.get("tool_calls")
@@ -39,10 +39,12 @@ def handle_agent_response(response, session_history, console, status_label):
     # Track if we captured any visual content and store the image data
     captured_image_data = None
     visual_tool_used = False
+    tool_results = []
     
     # Execute all tool calls the AI requested
     for tool_call in tool_calls:
         tool_result = execute_autonomous_tool(tool_call, console)
+        tool_results.append(tool_result)
         # Add tool result to session history
         session_history.append(tool_result)
         
@@ -60,35 +62,76 @@ def handle_agent_response(response, session_history, console, status_label):
             except Exception as e:
                 console.insert(END, f"⚠️ Failed to get screenshot data: {str(e)}\n", "warning")
     
-    # Now get AI's final response - use vision API if we captured visual content
+    # FIXED: Now get AI's final response with proper vision integration
     if visual_tool_used and captured_image_data and supports_vision():
         console.insert(END, "👁️ Analyzing visual content with Mistral Vision...\n", "dim")
         
         try:
-            # Use the vision API with the captured screenshot
-            final_response = call_mistral_vision_api(session_history[:-len(tool_calls)], captured_image_data)
+            # FIXED: Use vision API directly with the captured screenshot
+            # This creates a unified response that includes both the visual analysis
+            # and the contextual understanding
+            vision_response = call_mistral_vision_api(session_history[:-len(tool_calls)], captured_image_data)
+            
+            # FIXED: Instead of treating vision as separate, integrate it properly
+            # Create a combined response that acknowledges the vision analysis as part of the AI's own capability
+            vision_content = vision_response.get("content", "I analyzed the visual content.")
+            
+            # FIXED: Create a unified assistant response that owns the visual analysis
+            unified_response = {
+                "role": "assistant",
+                "content": f"I've captured and analyzed your screen. Here's what I can see:\n\n{vision_content}\n\nBased on this visual analysis and the tools I used, I can help you further with any questions about what's displayed or assist with related tasks."
+            }
+            
+            session_history.append(unified_response)
             console.insert(END, "✅ Visual analysis complete!\n", "success")
+            
+            # Display the unified response
+            final_content = unified_response.get("content")
+            console.insert(END, f"AI: {final_content}\n")
             
         except Exception as e:
             console.insert(END, f"⚠️ Vision analysis failed: {str(e)}\n", "warning")
-            console.insert(END, "💬 Falling back to text-only response...\n", "dim")
-            # Fallback to regular API call
-            working_history = session_history.copy()
-            final_response = call_mistral_api(working_history)
+            console.insert(END, "💬 Providing response based on tool results...\n", "dim")
+            
+            # FIXED: Fallback that still acknowledges the screenshot was taken
+            fallback_content = "I captured your screen successfully, but couldn't perform detailed visual analysis due to an API issue. However, I can still help you with the information available. What would you like to know about your screen content?"
+            
+            fallback_response = {
+                "role": "assistant", 
+                "content": fallback_content
+            }
+            session_history.append(fallback_response)
+            console.insert(END, f"AI: {fallback_content}\n")
     else:
-        # Regular response for non-visual tools or when vision not available
+        # FIXED: For non-visual tools, create a response that acknowledges what was done
         if visual_tool_used and not supports_vision():
             console.insert(END, "⚠️ Vision not available with current model, providing text response...\n", "warning")
         
-        console.insert(END, "💬 Agent formulating response...\n", "dim")
+        console.insert(END, "💬 Agent formulating response based on tool results...\n", "dim")
+        
+        # Create context for the text model that includes what tools were executed
+        tool_summary = []
+        for i, result in enumerate(tool_results):
+            tool_name = result.get("name", "unknown")
+            tool_content = result.get("content", "")[:100] + "..." if len(result.get("content", "")) > 100 else result.get("content", "")
+            tool_summary.append(f"- {tool_name}: {tool_content}")
+        
+        # FIXED: Add a context message that helps the text model understand what it just did
+        context_message = {
+            "role": "system",
+            "content": f"You just executed these tools autonomously:\n" + "\n".join(tool_summary) + "\n\nNow provide a response that acknowledges what you did and offers further assistance based on the tool results. Don't treat the tool results as if they came from the user - they are your own actions."
+        }
+        
         working_history = session_history.copy()
+        working_history.append(context_message)
+        
         final_response = call_mistral_api(working_history)
-    
-    # Add final response to session history
-    session_history.append(final_response)
-    
-    final_content = final_response.get("content", "Task completed autonomously.")
-    console.insert(END, f"AI: {final_content}\n")
+        
+        # Add final response to session history (but not the context message)
+        session_history.append(final_response)
+        
+        final_content = final_response.get("content", "I've completed the requested actions.")
+        console.insert(END, f"AI: {final_content}\n")
 
 def execute_autonomous_tool(tool_call, console):
     """
