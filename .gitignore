@@ -36,6 +36,7 @@ mini-player/modes/chat/history/*.json
 
 # Memory data - exclude all stored facts, summaries, preferences
 mini-player/modes/chat/history/memory/
+mini-player/modes/chat/history/music/
 mini-player/modes/chat/memory/memory/
 
 # Any other chat data directories
