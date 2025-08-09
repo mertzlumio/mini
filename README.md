@@ -1,4 +1,4 @@
-# 🎯 Mini-Player
+# 🧮 Mini-Player
 
 A compact, always-on-top utility window that packs powerful features into a minimal interface. Switch seamlessly between bash commands, AI chat, note-taking, and music playback - all from one tiny, keyboard-driven window.
 
@@ -68,18 +68,7 @@ git clone https://github.com/mertzlumio/mini.git
 cd mini
 ```
 
-### 2. **One-Command Setup**
-```bash
-python setup_and_run.py
-```
-
-This script automatically:
-- Creates a virtual environment
-- Installs all dependencies
-- Configures global hotkeys
-- Launches Mini-Player
-
-### 3. **Configure Your AI**
+### 2. **Configure Your AI**
 Create a `.env` file in the root directory:
 
 ```env
@@ -94,6 +83,17 @@ DEBUG=false
 ```
 
 **Get your API key:** [Mistral AI Console](https://console.mistral.ai/)
+
+### 3. **One-Command Setup**
+```bash
+python setup_and_run.py
+```
+
+This script automatically:
+- Creates a virtual environment
+- Installs all dependencies
+- Configures global hotkeys
+- Launches Mini-Player
 
 ---
 
