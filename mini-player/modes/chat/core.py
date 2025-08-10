@@ -1,4 +1,4 @@
-# Updated modes/chat/core.py - Progressive text display and better UX
+# Fixed modes/chat/core.py - Complete replacement to eliminate recursion error
 import os
 import json
 from tkinter import END
@@ -7,6 +7,7 @@ from datetime import datetime
 import atexit
 import threading
 import time
+import re
 
 from config import CHAT_HISTORY_DIR, CHAT_HISTORY_LENGTH
 from .api_client import call_mistral_api
@@ -86,69 +87,307 @@ def add_to_session_history(message):
         compressed_count = memory_manager.compress_working_memory(keep_recent=15)
         print(f"Auto-compressed {compressed_count} old messages to long-term memory")
 
-def typewriter_effect(console, text, delay=0.02):
-    """
-    Display text with typewriter effect for better UX
-    """
-    def type_char(char_index=0):
-        if char_index < len(text):
-            console.insert(END, text[char_index])
-            console.see(END)
-            console.update_idletasks()
-            # Schedule next character
-            console.after(int(delay * 1000), lambda: type_char(char_index + 1))
+class SmoothResponseDisplay:
+    """Handles smooth, natural response display with proper pacing"""
     
-    type_char()
-
-def display_response_progressively(console, response_text, prefix="Mini: "):
-    console.insert(END, prefix)
-    console.see(END)
+    def __init__(self, console, status_label):
+        self.console = console
+        self.status_label = status_label
+        self.is_active = False
+        self.current_animation = None
+        self.output_buffer = []
+        self.is_capturing = False
+        
+    def show_thinking_dots(self, base_message="Mini thinking"):
+        """Show animated thinking dots"""
+        dots = ['', '.', '..', '...']
+        dot_index = [0]
+        self.is_active = True
+        
+        def animate_dots():
+            if self.is_active:
+                current_dots = dots[dot_index[0] % len(dots)]
+                self.status_label.config(text=f"{base_message}{current_dots}")
+                dot_index[0] += 1
+                self.current_animation = self.console.after(400, animate_dots)
+        
+        animate_dots()
+        return self
     
-    chunks = response_text.split('\n\n')
-    idx = 0
+    def show_working(self, message="Mini working"):
+        """Show working indicator for agent actions"""
+        chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+        char_index = [0]
+        self.is_active = True
+        
+        def animate_working():
+            if self.is_active:
+                char = chars[char_index[0] % len(chars)]
+                self.status_label.config(text=f"{message} {char}")
+                char_index[0] += 1
+                self.current_animation = self.console.after(150, animate_working)
+        
+        animate_working()
+        return self
     
-    def show_chunk():
-        nonlocal idx
-        if idx < len(chunks):
-            chunk = chunks[idx]
-            if chunk.strip():
-                console.insert(END, chunk)
-                if idx < len(chunks) - 1:
-                    console.insert(END, '\n\n')
-                console.see(END)
-            idx += 1
-            console.after(150, show_chunk)  # schedule next chunk after 150ms
+    def stop_animation(self):
+        """Stop current animation - FIXED VERSION"""
+        self.is_active = False
+        if self.current_animation:
+            self.console.after_cancel(self.current_animation)
+            self.current_animation = None
+    
+    def display_response_naturally(self, response_text, prefix="Mini: "):
+        """Display response with natural pacing and smooth scrolling"""
+        self.stop_animation()
+        
+        # Clean up the response text
+        response_text = response_text.strip()
+        if not response_text:
+            self.status_label.config(text="Ready")
+            return
+        
+        # Insert prefix
+        self.console.insert(END, prefix)
+        self.console.see(END)
+        
+        # Split into natural chunks (sentences, paragraphs, etc.)
+        chunks = self._split_into_natural_chunks(response_text)
+        chunk_index = [0]
+        
+        def display_next_chunk():
+            if chunk_index[0] < len(chunks):
+                chunk = chunks[chunk_index[0]]
+                
+                # Type out the chunk character by character with smart pacing
+                self._type_chunk_smoothly(chunk, chunk_index[0], len(chunks), display_next_chunk)
+                chunk_index[0] += 1
+            else:
+                # All chunks displayed
+                self.console.insert(END, '\n')
+                self._smooth_scroll_to_end()
+                self.status_label.config(text="Ready")
+        
+        display_next_chunk()
+    
+    def _split_into_natural_chunks(self, text):
+        """Split text into natural reading chunks"""
+        # First split by double newlines (paragraphs)
+        paragraphs = text.split('\n\n')
+        chunks = []
+        
+        for para in paragraphs:
+            if len(para) < 100:
+                # Short paragraph, keep as one chunk
+                chunks.append(para.strip())
+            else:
+                # Long paragraph, split by sentences
+                sentences = re.split(r'(?<=[.!?])\s+', para)
+                current_chunk = ""
+                
+                for sentence in sentences:
+                    if len(current_chunk + sentence) < 120:
+                        current_chunk += sentence + " "
+                    else:
+                        if current_chunk.strip():
+                            chunks.append(current_chunk.strip())
+                        current_chunk = sentence + " "
+                
+                if current_chunk.strip():
+                    chunks.append(current_chunk.strip())
+            
+            # Add paragraph break marker
+            if para != paragraphs[-1]:  # Not the last paragraph
+                chunks.append('\n')
+        
+        return [chunk for chunk in chunks if chunk]
+    
+    def _type_chunk_smoothly(self, chunk, chunk_num, total_chunks, callback):
+        """Type a chunk with smooth character-by-character display"""
+        if chunk == '\n':
+            self.console.insert(END, '\n\n')
+            self._smooth_scroll_to_end()
+            self.console.after(300, callback)  # Pause between paragraphs
+            return
+        
+        chars = list(chunk)
+        char_index = [0]
+        
+        def type_next_char():
+            if char_index[0] < len(chars):
+                char = chars[char_index[0]]
+                self.console.insert(END, char)
+                
+                # Smart scrolling - only scroll if near bottom
+                self._smart_scroll()
+                
+                # Variable delay based on character type
+                delay = self._get_char_delay(char, char_index[0], len(chars))
+                
+                char_index[0] += 1
+                self.console.after(delay, type_next_char)
+            else:
+                # Chunk complete
+                if chunk_num < total_chunks - 1:
+                    self.console.insert(END, ' ')
+                    self.console.after(200, callback)  # Brief pause between chunks
+                else:
+                    callback()
+        
+        type_next_char()
+    
+    def _get_char_delay(self, char, position, total_length):
+        """Get appropriate delay for character based on context"""
+        base_delay = 25  # Base typing speed
+        
+        # Punctuation gets longer pauses
+        if char in '.!?':
+            return base_delay * 3
+        elif char in ',;:':
+            return base_delay * 2
+        elif char == '\n':
+            return base_delay * 2
+        elif char == ' ':
+            return base_delay
         else:
-            console.insert(END, '\n')
-            console.see(END)
+            # Regular characters - slight variation for natural feel
+            import random
+            return base_delay + random.randint(-5, 10)
     
-    show_chunk()
-
-
-def show_thinking_animation(console, status_label):
-    """
-    Show animated thinking indicator
-    """
-    thinking_chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-    char_index = [0]  # Use list to make it mutable in nested function
-    thinking_active = [True]
+    def _smart_scroll(self):
+        """Only scroll if user is near the bottom"""
+        # Check if we're near the bottom of the text
+        try:
+            # Get the current view position
+            top, bottom = self.console.yview()
+            
+            # If we're viewing the bottom 20% of content, auto-scroll
+            if bottom > 0.8:
+                self.console.see(END)
+        except:
+            # Fallback to always scroll
+            self.console.see(END)
     
-    def animate():
-        if thinking_active[0]:
-            char = thinking_chars[char_index[0] % len(thinking_chars)]
-            status_label.config(text=f"Mini Thinking {char}")
-            char_index[0] += 1
-            # Schedule next animation frame
-            console.after(150, animate)
+    def _smooth_scroll_to_end(self):
+        """Smoothly scroll to the end"""
+        def scroll_step(steps_remaining=5):
+            if steps_remaining > 0:
+                self.console.see(END)
+                self.console.after(50, lambda: scroll_step(steps_remaining - 1))
+        
+        scroll_step()
     
-    animate()
-    return thinking_active  # Return reference to stop animation
+    def start_output_capture(self):
+        """Start capturing console output"""
+        self.output_buffer = []
+        self.is_capturing = True
+        
+        # Store original console methods
+        self.original_insert = self.console.insert
+        self.original_see = self.console.see
+        
+        # Replace with capturing versions
+        def capturing_insert(position, text, tag=None):
+            if self.is_capturing and position == END:
+                # Buffer the output instead of writing directly
+                self.output_buffer.append({
+                    'text': text,
+                    'tag': tag
+                })
+            else:
+                # Pass through for non-END insertions or when not capturing
+                self.original_insert(position, text, tag)
+        
+        def capturing_see(position):
+            # Don't scroll during capture
+            if not self.is_capturing:
+                self.original_see(position)
+        
+        self.console.insert = capturing_insert
+        self.console.see = capturing_see
+    
+    def stop_output_capture(self):
+        """Stop capturing and restore original console methods"""
+        self.is_capturing = False
+        if hasattr(self, 'original_insert'):
+            self.console.insert = self.original_insert
+        if hasattr(self, 'original_see'):
+            self.console.see = self.original_see
+    
+    def play_captured_output(self):
+        """Play back captured output with typewriter effect"""
+        if not self.output_buffer:
+            self.stop_animation()
+            self.status_label.config(text="Ready")
+            return
+        
+        # Combine all captured text while preserving tags
+        combined_text = ""
+        for item in self.output_buffer:
+            combined_text += item['text']
+        
+        # Clear the buffer
+        self.output_buffer = []
+        
+        # Play with typewriter effect
+        if combined_text.strip():
+            # Add completion message before the actual output
+            completion_msg = "\n✨ Here's what I found:\n\n"
+            self.display_response_naturally(completion_msg + combined_text, prefix="")
+        else:
+            self.stop_animation()
+            self.console.insert(END, "✨ Task completed\n", "success")
+            self.status_label.config(text="Ready")
+    
+    def display_agent_response_smoothly(self, response, session_history):
+        """Handle agent responses with universal typewriter effect"""
+        # Check if AI decided to use tools
+        tool_calls = response.get("tool_calls")
+        
+        if not tool_calls:
+            # Simple response with natural display
+            content = response.get("content", "I'm not sure how to respond.")
+            self.display_response_naturally(content)
+            return
+        
+        # Agent response - start capturing output and keep working indicator
+        self.show_working("Mini using tools")
+        
+        # Display initial working message normally (not captured)
+        self.console.insert(END, "Mini is working with tools...\n", "accent")
+        self.console.see(END)
+        
+        # Start capturing all subsequent output
+        self.start_output_capture()
+        
+        def process_agent_work():
+            try:
+                # Run agent handler - all its output will be captured
+                handle_agent_response(response, session_history, self.console, self.status_label)
+                
+                # Stop capturing and play back with typewriter effect
+                self.stop_output_capture()
+                
+                # Play the captured output with typewriter effect
+                self.console.after(500, self.play_captured_output)
+                
+            except Exception as e:
+                self.stop_output_capture()
+                self.stop_animation()
+                self.console.insert(END, f"\n❌ Error during Mini using tools: {str(e)}\n", "error")
+                self.status_label.config(text="Ready")
+        
+        # Start agent processing after a brief delay
+        self.console.after(800, process_agent_work)
 
 def handle_command(cmd, console, status_label, entry):
-    """Enhanced chat handler with progressive display and better UX"""
+    """Enhanced chat handler with smooth response display"""
     memory_manager = get_memory_manager()
     
-    # Memory-specific commands
+    # Create response display handler
+    response_display = SmoothResponseDisplay(console, status_label)
+    
+    # Memory-specific commands (unchanged)
     if cmd.lower().startswith(("/search", "/find", "/remember")):
         query = cmd.split(maxsplit=1)[1] if len(cmd.split()) > 1 else ""
         if not query:
@@ -180,7 +419,7 @@ def handle_command(cmd, console, status_label, entry):
         status_label.config(text="Ready")
         return
     
-    # Existing commands
+    # Existing commands (unchanged)
     if cmd.lower() in ("/new", "/reset"):
         if memory_manager.working_memory:
             saved_path = save_current_session()
@@ -201,8 +440,8 @@ def handle_command(cmd, console, status_label, entry):
         status_label.config(text="Ready")
         return
 
-    # Regular chat processing with improved UX
-    thinking_animation = show_thinking_animation(console, status_label)
+    # Regular chat processing with enhanced UX
+    response_display.show_thinking_dots()
     console.update_idletasks()
     
     # Get enhanced history (includes long-term memory context)
@@ -218,45 +457,24 @@ def handle_command(cmd, console, status_label, entry):
             # Get response from API (now with memory context!)
             response = call_mistral_api(history)
             
-            # Stop thinking animation
-            thinking_animation[0] = False
-            
             # Add assistant response to memory
             add_to_session_history(response)
             
-            # Display response with better UX
-            console.after(0, lambda: display_agent_response(response, memory_manager.working_memory, console, status_label))
+            # Display response with smooth UX
+            console.after(0, lambda: response_display.display_agent_response_smoothly(
+                response, memory_manager.working_memory
+            ))
 
         except requests.exceptions.HTTPError as e:
-            thinking_animation[0] = False
+            response_display.stop_animation()
             console.after(0, lambda: handle_api_error(e, console, status_label))
         except Exception as e:
-            thinking_animation[0] = False
+            response_display.stop_animation()
             console.after(0, lambda: handle_general_error(e, console, status_label))
 
     # Process API call in background thread
     thread = threading.Thread(target=process_in_background, daemon=True)
     thread.start()
-
-def display_agent_response(response, session_history, console, status_label):
-    """Display agent response with progressive text and better formatting"""
-    # Check if AI decided to use tools
-    tool_calls = response.get("tool_calls")
-    
-    if not tool_calls:
-        # Simple response with progressive display
-        content = response.get("content", "I'm not sure how to respond.")
-        display_response_progressively(console, content)
-        status_label.config(text="Ready")
-        return
-    
-    # Handle tool-based responses (existing agent logic but with better display)
-    console.insert(END, "🛠️ Mini working...\n", "accent")
-    console.update_idletasks()
-    
-    # Use existing agent handler but improve the display
-    handle_agent_response(response, session_history, console, status_label)
-    status_label.config(text="Ready")
 
 def handle_api_error(e, console, status_label):
     """Handle API errors with better messaging"""
