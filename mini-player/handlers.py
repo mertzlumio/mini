@@ -13,8 +13,8 @@ modes = ["bash", "chat", "notes", "music"]
 mode_index = 0
 mode = modes[mode_index]
 
-def toggle_mode(entry, console, mode_label, status_label, prompt_label, theme=None):
-    """Enhanced mode switching with theme support"""
+def toggle_mode(entry, console, mode_status_label, status_label, prompt_label, theme=None):
+    """Enhanced mode switching for integrated header"""
     global mode_index, mode
     mode_index = (mode_index + 1) % len(modes)
     mode = modes[mode_index]
@@ -24,9 +24,10 @@ def toggle_mode(entry, console, mode_label, status_label, prompt_label, theme=No
         theme = get_current_theme()
     
     config = theme["mode_config"][mode]
-    mode_label.config(text=config['symbol'], fg=config['color'])
+    
+    # Update integrated mode/status label
+    mode_status_label.config(text=f"{config['symbol']} Ready", fg=config['color'])
     prompt_label.config(text=config['prompt'], fg=config['color'])
-    status_label.config(text="Ready")
     
     console.insert(END, f"\n>> Mode: {config['symbol']}\n", "accent")
     
@@ -38,8 +39,18 @@ def toggle_mode(entry, console, mode_label, status_label, prompt_label, theme=No
     console.see(END)
     return "break"
 
-def on_enter(entry, console, mode_label, status_label):
-    """Dispatches command to the active mode's handler."""
+def update_status(mode_status_label, status_text, mode_override=None):
+    """Update the status part of the integrated label"""
+    global mode
+    current_mode = mode_override or mode
+    theme = get_current_theme()
+    config = theme["mode_config"][current_mode]
+    
+    # Update with mode + status
+    mode_status_label.config(text=f"{config['symbol']} {status_text}", fg=config['color'])
+
+def on_enter(entry, console, mode_status_label, status_label):
+    """Dispatches command with integrated status updates"""
     global history, history_index, current_dir, mode
     
     cmd = entry.get().strip()
@@ -51,13 +62,11 @@ def on_enter(entry, console, mode_label, status_label):
         theme_name = cmd.split(maxsplit=1)[1]
         from themes import switch_theme, get_available_themes
         if switch_theme(theme_name):
-            # Get prompt_label reference (we need to pass it)
-            # For now, just show confirmation
-            console.insert(END, f"\n├► {cmd}\n", "dim")
+            console.insert(END, f"\n> {cmd}\n", "dim")
             console.insert(END, f"🎨 Switched to {theme_name} theme\n", "accent")
             console.insert(END, "Restart app to see full theme changes\n", "dim")
         else:
-            console.insert(END, f"\n├► {cmd}\n", "dim")
+            console.insert(END, f"\n> {cmd}\n", "dim")
             themes_list = ", ".join(get_available_themes())
             console.insert(END, f"❌ Unknown theme. Available: {themes_list}\n", "error")
         console.see(END)
@@ -65,7 +74,7 @@ def on_enter(entry, console, mode_label, status_label):
         return
     
     if cmd == "/themes":
-        console.insert(END, f"\n├► {cmd}\n", "dim")
+        console.insert(END, f"\n> {cmd}\n", "dim")
         from themes import get_available_themes, get_theme_info
         console.insert(END, f"{get_theme_info()}\n", "accent")
         themes_list = ", ".join(get_available_themes())
@@ -81,21 +90,25 @@ def on_enter(entry, console, mode_label, status_label):
     console.insert(END, f"\n> {cmd}\n", "dim")
     
     if mode == "bash":
+        update_status(mode_status_label, "Running...")
         output, new_dir = bash_core.handle_command(cmd, current_dir)
         current_dir = new_dir
         console.insert(END, output + "\n")
-        status_label.config(text="Ready")
+        update_status(mode_status_label, "Ready")
         
     elif mode == "chat":
-        chat_core.handle_command(cmd, console, status_label, entry)
+        # Chat handler manages its own status updates
+        chat_core.handle_command(cmd, console, mode_status_label, entry)
             
     elif mode == "notes":
+        update_status(mode_status_label, "Processing...")
         notes_core.handle_command(cmd, console)
-        status_label.config(text="Ready")
+        update_status(mode_status_label, "Ready")
         
     elif mode == "music":
+        update_status(mode_status_label, "Processing...")
         music_core.handle_command(cmd, console)
-        status_label.config(text="Ready")
+        update_status(mode_status_label, "Ready")
 
     console.see(END)
     entry.delete(0, END)
@@ -113,7 +126,7 @@ def display_notes(console):
     console.insert(END, f"\nTotal: {len(notes)} task{'s' if len(notes) != 1 else ''}\n", "dim")
 
 def display_music_status(console):
-    """Display music player status - theme-agnostic"""
+    """Display music player status"""
     try:
         from modes.music.audio_engine import get_audio_engine
         from modes.music.playlist import get_playlist_manager
