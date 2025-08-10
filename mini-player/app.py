@@ -209,26 +209,26 @@ def start_app():
     separator2 = tk.Frame(main_frame, bg=THEME["border"], height=1)
     separator2.pack(fill=tk.X)
     
-    # FULL-WIDTH INPUT AREA
-    input_frame = tk.Frame(main_frame, bg=THEME["console_bg"], height=32)
+    # FULL-WIDTH INPUT AREA - ENHANCED
+    input_frame = tk.Frame(main_frame, bg=THEME["console_bg"], height=35)  # Increased from 32 to 45
     input_frame.pack(fill=tk.X)
     input_frame.pack_propagate(False)
-    
+
     # Prompt symbol
     prompt_label = tk.Label(
         input_frame, text=">", bg=THEME["console_bg"], fg=THEME["accent"], 
-        font=("Cascadia Code", 9, "bold")
+        font=("Cascadia Code", 14, "bold")  # Increased from 9 to 12
     )
-    prompt_label.pack(side=tk.LEFT, padx=(12, 8), pady=6)
-    
-    # Entry field (full width)
+    prompt_label.pack(side=tk.LEFT, padx=(2, 2), pady=1)  # Increased padding
+
+    # Entry field (full width) - ENHANCED
     entry = tk.Entry(
         input_frame, bg=THEME["console_bg"], fg=THEME["text"],
         insertbackground=THEME["accent"], bd=0, highlightthickness=0,
-        font=("Cascadia Code", 9), selectbackground=THEME["accent"],
-        selectforeground=THEME["bg"], insertwidth=2
+        font=("Cascadia Code", 12), selectbackground=THEME["accent"],  # Increased from 9 to 12
+        selectforeground=THEME["bg"], insertwidth=3  # Increased cursor width
     )
-    entry.pack(fill=tk.X, side=tk.RIGHT, padx=(0, 12), pady=6)
+    entry.pack(fill=tk.X, side=tk.RIGHT, padx=(2, 15), pady=8, ipady=3) 
     
     # Store global reference
     entry_widget = entry
