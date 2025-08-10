@@ -77,12 +77,29 @@ def cleanup_on_exit():
     except Exception as e:
         print(f"Error during music cleanup: {e}")
 
-def scroll_console(console, direction):
-    """Scroll console content with Ctrl+Arrow keys"""
-    if direction == "up":
-        console.yview_scroll(-3, "units")
-    elif direction == "down":
-        console.yview_scroll(3, "units")
+def scroll_console(console, direction, smooth=True):
+    """Scroll console content smoothly"""
+    if smooth:
+        # Smooth scrolling - multiple small steps
+        steps = 10
+        scroll_amount = 1
+        delay = 20  # milliseconds between steps
+        
+        def smooth_scroll_step(step):
+            if step < steps:
+                if direction == "up":
+                    console.yview_scroll(-scroll_amount, "units")
+                elif direction == "down":
+                    console.yview_scroll(scroll_amount, "units")
+                console.after(delay, lambda: smooth_scroll_step(step + 1))
+        
+        smooth_scroll_step(0)
+    else:
+        # Original scrolling
+        if direction == "up":
+            console.yview_scroll(-3, "units")
+        elif direction == "down":
+            console.yview_scroll(3, "units")
 
 def cycle_theme(console, mode_status_label, entry):
     """Cycle through available themes"""
@@ -185,12 +202,16 @@ def start_app():
     console_frame = tk.Frame(main_frame, bg=THEME["console_bg"])
     console_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
     
+    # Create console with subtle line spacing
     console = tk.Text(
         console_frame, height=8, bg=THEME["console_bg"], fg=THEME["text"],
         insertbackground=THEME["accent"], bd=0, highlightthickness=0,
-        font=("Cascadia Code", 9), wrap=tk.WORD,
+        font=("Cascadia Code", 10), wrap=tk.WORD,
         selectbackground=THEME["accent"], selectforeground=THEME["bg"],
-        padx=12, pady=8, cursor="arrow"
+        padx=6, pady=8, cursor="arrow",
+        # Add subtle line spacing for ruled effect
+        spacing1=2,  # Space before each line
+        spacing3=1   # Space after each line
     )
     console.pack(fill=tk.BOTH, expand=True)
     
@@ -241,13 +262,13 @@ def start_app():
     
     # Bind events
     entry.bind("<Return>", lambda e: on_enter(entry, console, mode_status_label, mode_status_label))
-    entry.bind("<Up>", lambda e: on_up(entry))
-    entry.bind("<Down>", lambda e: on_down(entry))
+    entry.bind("<Control-Up>", lambda e: on_up(entry))
+    entry.bind("<Control-Down>", lambda e: on_down(entry))
     entry.bind("<Control-m>", lambda e: toggle_mode(entry, console, mode_status_label, mode_status_label, prompt_label, THEME))
     
     # Console navigation
-    entry.bind("<Control-Up>", lambda e: scroll_console(console, "up"))
-    entry.bind("<Control-Down>", lambda e: scroll_console(console, "down"))
+    entry.bind("<Up>", lambda e: scroll_console(console, "up"))
+    entry.bind("<Down>", lambda e: scroll_console(console, "down"))
     
     # Theme switching
     entry.bind("<Control-t>", lambda e: cycle_theme(console, mode_status_label, entry))
@@ -262,7 +283,7 @@ def start_app():
     console.insert(tk.END, ">> Mini Player Ready\n", "accent")
     console.insert(tk.END, f"   Theme: {THEME['name']}\n", "dim")
     console.insert(tk.END, "   Modes: BASH → CHAT → NOTES → MUSIC\n", "dim")
-    console.insert(tk.END, "   Ctrl+M=modes • Ctrl+T=themes • Ctrl+↑↓=scroll\n", "dim")
+    console.insert(tk.END, "   Ctrl+M=modes • Ctrl+T=themes • ↑↓=scroll\n", "dim")
     notes_core.display_notes(console)
     console.see(tk.END)
     
