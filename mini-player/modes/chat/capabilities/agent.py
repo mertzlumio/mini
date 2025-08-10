@@ -30,11 +30,11 @@ def handle_agent_response(response, session_history, console, status_label):
     if not tool_calls:
         # Simple response - no autonomous action needed
         content = response.get("content", "I'm not sure how to respond.")
-        console.insert(END, f"AI: {content}\n")
+        console.insert(END, f"{content}\n")
         return
     
     # AI autonomously decided to use tools
-    console.insert(END, "🛠️ Agent using tools...\n", "accent")
+    #console.insert(END, "🛠️ Agent using tools...\n", "accent")
     
     # Track if we captured any visual content and store the image data
     captured_image_data = None
@@ -64,7 +64,7 @@ def handle_agent_response(response, session_history, console, status_label):
     
     # FIXED: Now get AI's final response with proper vision integration
     if visual_tool_used and captured_image_data and supports_vision():
-        console.insert(END, "👁️ Analyzing visual content with Mistral Vision...\n", "dim")
+        console.insert(END, "Analyzing visual content with Mistral Vision...\n", "dim")
         
         try:
             # FIXED: Use vision API directly with the captured screenshot
@@ -87,7 +87,7 @@ def handle_agent_response(response, session_history, console, status_label):
             
             # Display the unified response
             final_content = unified_response.get("content")
-            console.insert(END, f"AI: {final_content}\n")
+            console.insert(END, f"{final_content}\n")
             
         except Exception as e:
             console.insert(END, f"⚠️ Vision analysis failed: {str(e)}\n", "warning")
@@ -101,13 +101,13 @@ def handle_agent_response(response, session_history, console, status_label):
                 "content": fallback_content
             }
             session_history.append(fallback_response)
-            console.insert(END, f"AI: {fallback_content}\n")
+            console.insert(END, f"{fallback_content}\n")
     else:
         # FIXED: For non-visual tools, create a response that acknowledges what was done
         if visual_tool_used and not supports_vision():
             console.insert(END, "⚠️ Vision not available with current model, providing text response...\n", "warning")
         
-        console.insert(END, "💬 Agent formulating response based on tool results...\n", "dim")
+        #console.insert(END, "💬 Agent formulating response based on tool results...\n", "dim")
         
         # Create context for the text model that includes what tools were executed
         tool_summary = []
@@ -131,7 +131,7 @@ def handle_agent_response(response, session_history, console, status_label):
         session_history.append(final_response)
         
         final_content = final_response.get("content", "I've completed the requested actions.")
-        console.insert(END, f"AI: {final_content}\n")
+        console.insert(END, f"{final_content}\n")
 
 def execute_autonomous_tool(tool_call, console):
     """
@@ -142,7 +142,7 @@ def execute_autonomous_tool(tool_call, console):
     function_info = tool_call.get("function", {})
     tool_name = function_info.get("name")
     
-    console.insert(END, f"  → Agent executing: {tool_name}\n", "dim")
+    #console.insert(END, f"Mini is executing: {tool_name}\n", "dim")
     
     tool_result = {
         "role": "tool",
@@ -183,13 +183,13 @@ def execute_autonomous_tool(tool_call, console):
                 
                 # Show appropriate feedback
                 if tool_name == "add_task_to_notes":
-                    console.insert(END, f"  ✓ Task added: {arguments.get('task_content', '')[:30]}...\n", "success")
+                    console.insert(END, f"✓ Task added: {arguments.get('task_content', '')[:30]}...\n", "success")
                 elif tool_name == "search_web":
-                    console.insert(END, f"  🔍 Web search: {arguments.get('query', '')[:30]}...\n", "success")
+                    console.insert(END, f"Web search: {arguments.get('query', '')[:30]}...\n", "success")
                 elif tool_name == "remember_fact":
-                    console.insert(END, f"  🧠 Fact stored in memory\n", "success")
+                    console.insert(END, f"Fact stored in memory\n", "success")
                 elif tool_name == "recall_information":
-                    console.insert(END, f"  🔍 Memory searched\n", "success")
+                    console.insert(END, f"Memory searched\n", "success")
             
             tool_result["content"] = str(result)
             
