@@ -31,10 +31,7 @@ screenshots/
 
 # Chat history and memory data (keep only the infrastructure)
 # Ignore everything in history folder
-history/*
-
-# But keep the Python file
-!history/history_sanitizer.py
+.history/*
 
 
 # Any other chat data directories

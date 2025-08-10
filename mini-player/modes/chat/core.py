@@ -11,7 +11,7 @@ import time
 from config import CHAT_HISTORY_DIR, CHAT_HISTORY_LENGTH
 from .api_client import call_mistral_api
 from .capabilities.agent import handle_agent_response
-from .history.history_sanitizer import sanitize_and_trim_history
+from .memory.history_sanitizer import sanitize_and_trim_history
 from .memory.memory_manager import MemoryManager
 
 # Global memory manager - this replaces simple session history!
@@ -263,9 +263,12 @@ def display_agent_response(response, session_history, console, status_label):
 
 def handle_api_error(e, console, status_label):
     """Handle API errors with better messaging"""
-    console.insert(END, f"❌ API Error {e.response.status_code}\n", "error")
-    error_details = e.response.text[:200] + "..." if len(e.response.text) > 200 else e.response.text
-    console.insert(END, f"Details: {error_details}\n", "dim")
+    if hasattr(e, 'response') and e.response:
+        console.insert(END, f"❌ API Error {e.response.status_code}\n", "error")
+        error_details = e.response.text[:200] + "..." if len(e.response.text) > 200 else e.response.text
+        console.insert(END, f"Details: {error_details}\n", "dim")
+    else:
+        console.insert(END, f"❌ API Error: {str(e)}\n", "error")
     status_label.config(text="Ready")
 
 def handle_general_error(e, console, status_label):

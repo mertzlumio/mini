@@ -5,17 +5,9 @@ import platform
 
 # --- Configuration ---
 VENV_DIR = ".venv"
-APP_DIR = os.path.dirname(os.path.abspath(__file__)) # Root directory where this script is
-MAIN_APP_PATH = os.path.join(APP_DIR, "mini-player", "__main__.py")  # Updated path
-
-# Required Python packages
-REQUIRED_PACKAGES = [
-    "python-dotenv",
-    "requests",
-    "Pillow",
-    "pynput",
-    "python-xlib" # For pynput on Linux (Xorg)
-]
+APP_DIR = os.path.dirname(os.path.abspath(__file__))  # Root directory where this script is
+MAIN_APP_PATH = os.path.join(APP_DIR, "mini-player", "__main__.py")  # Main entry point
+REQUIREMENTS_FILE = os.path.join(APP_DIR, "requirements.txt")
 
 # --- Helper Functions ---
 
@@ -44,9 +36,8 @@ def run_command(command, cwd=None, check=True):
 def get_python_executable():
     """Determines the correct Python executable path."""
     if platform.system() == "Windows":
-        return "python" # On Windows, 'python' usually points to the installed Python
+        return "python"
     else:
-        # Try 'python3' first, then 'python'
         try:
             subprocess.run(["python3", "--version"], check=True, capture_output=True)
             return "python3"
@@ -85,44 +76,30 @@ def setup_and_run():
         print(f"Error: Virtual environment Python executable not found at {venv_python_executable}")
         sys.exit(1)
 
-    # 3. Install Required Packages
-    print_status("Installing/Updating required Python packages...")
-    pip_install_command = [venv_python_executable, "-m", "pip", "install"] + REQUIRED_PACKAGES
-    run_command(pip_install_command, cwd=APP_DIR)
-    print("All Python packages installed.")
+    # 3. Install Required Packages from requirements.txt
+    if os.path.exists(REQUIREMENTS_FILE):
+        print_status("Installing/Updating required Python packages...")
+        run_command([venv_python_executable, "-m", "pip", "install", "-r", REQUIREMENTS_FILE], cwd=APP_DIR)
+        print("All Python packages installed.")
+    else:
+        print(f"Warning: {REQUIREMENTS_FILE} not found. Skipping package installation.")
 
     # 4. Global Hotkey Setup Guidance (OS-specific)
     print_status("Global Hotkey Setup Guidance")
     if platform.system() == "Linux":
-        print("On Linux, global hotkeys can be tricky due to display server permissions.")
-        print("The application tries to use 'pynput' first, which often works without root if 'python-xlib' is installed.")
-        print("However, if you still face 'permission denied' or 'couldn't connect to display' errors:")
-        print("  a) Ensure your user is part of the 'input' group: `sudo usermod -aG input $USER` (then log out/in).")
-        print("  b) Temporarily grant display access to root (if running with sudo): `xhost +si:localuser:root` (from your regular user's terminal). Remember to revoke with `xhost -si:localuser:root` after use.")
-        print("  c) If 'keyboard' library is used as a fallback and fails, running the app with `sudo` might be required:")
-        print(f"     `sudo {venv_python_executable} {MAIN_APP_PATH}`")
-        print("     (Remember the security implications of running GUI apps as root).")
-        print("  d) Check your desktop environment's own hotkey settings for conflicts with Ctrl+Shift+M.")
-    elif platform.system() == "Darwin": # macOS
-        print("On macOS, applications often require 'Accessibility' permissions to capture global hotkeys.")
-        print("If the hotkey (Ctrl+Shift+M) doesn't work, you might need to:")
-        print("  Go to System Settings (or System Preferences) -> Privacy & Security -> Accessibility.")
-        print("  Add your Terminal application (or Python executable) to the list and grant it permission.")
+        print("On Linux, global hotkeys can be tricky due to display server permissions...")
+        print("Ensure your user is in the 'input' group or run with `sudo` if necessary.")
+    elif platform.system() == "Darwin":
+        print("On macOS, add your Terminal/Python to Accessibility permissions if hotkeys don't work.")
     elif platform.system() == "Windows":
-        print("On Windows, global hotkeys with 'keyboard' or 'pynput' should generally work out-of-the-box.")
-        print("If not, ensure no other application is already using Ctrl+Shift+M.")
-    else:
-        print("Unsupported operating system for specific hotkey guidance.")
+        print("On Windows, hotkeys should work out of the box unless another app is using them.")
 
     # 5. Launch the Application
     print_status("Launching Mini Player...")
-    print("Press Ctrl+Shift+M to toggle the window visibility.")
-    print("Press Escape to exit the application (globally if pynput is used, or locally if keyboard is used).")
-    
-    # Execute the main application using the virtual environment's Python
-    # Working directory should be the mini-player folder for imports to work
-    run_command([venv_python_executable, "__main__.py"], cwd=os.path.join(APP_DIR, "mini-player"))
+    print("Press Ctrl+Shift+M to toggle window visibility.")
+    print("Press Escape to exit.")
 
+    run_command([venv_python_executable, "__main__.py"], cwd=os.path.join(APP_DIR, "mini-player"))
     print_status("Mini Player exited.")
 
 if __name__ == "__main__":
