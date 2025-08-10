@@ -101,32 +101,29 @@ def typewriter_effect(console, text, delay=0.02):
     type_char()
 
 def display_response_progressively(console, response_text, prefix="Mini: "):
-    """
-    Display AI response with better formatting and progressive reveal
-    """
-    # Add the prefix immediately
     console.insert(END, prefix)
     console.see(END)
-    console.update_idletasks()
     
-    # Split into chunks for progressive display
-    chunks = response_text.split('\n\n')  # Split by double newlines (paragraphs)
+    chunks = response_text.split('\n\n')
+    idx = 0
     
-    for i, chunk in enumerate(chunks):
-        if chunk.strip():  # Skip empty chunks
-            # Display chunk with slight delay
-            time.sleep(0.1)  # Small pause between paragraphs
-            console.insert(END, chunk)
-            
-            # Add paragraph break if not the last chunk
-            if i < len(chunks) - 1:
-                console.insert(END, '\n\n')
-            
+    def show_chunk():
+        nonlocal idx
+        if idx < len(chunks):
+            chunk = chunks[idx]
+            if chunk.strip():
+                console.insert(END, chunk)
+                if idx < len(chunks) - 1:
+                    console.insert(END, '\n\n')
+                console.see(END)
+            idx += 1
+            console.after(150, show_chunk)  # schedule next chunk after 150ms
+        else:
+            console.insert(END, '\n')
             console.see(END)
-            console.update_idletasks()
     
-    console.insert(END, '\n')  # Final newline
-    console.see(END)
+    show_chunk()
+
 
 def show_thinking_animation(console, status_label):
     """
