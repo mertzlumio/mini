@@ -1,6 +1,6 @@
-# Fixed modes/chat/core.py - Complete replacement to eliminate recursion error
 import os
 import json
+import tkinter as tk  # ADD THIS LINE - it was missing!
 from tkinter import END
 import requests
 from datetime import datetime
@@ -14,6 +14,16 @@ from .api_client import call_mistral_api
 from .capabilities.agent import handle_agent_response
 from .memory.history_sanitizer import sanitize_and_trim_history
 from .memory.memory_manager import MemoryManager
+
+# Add markdown formatter import - but make it optional for now
+try:
+    from .markdown_formatter import create_markdown_formatter
+    MARKDOWN_AVAILABLE = True
+except ImportError:
+    MARKDOWN_AVAILABLE = False
+    print("Markdown formatter not available - using plain text display")
+
+# ... rest of your existing code until SmoothResponseDisplay class ...
 
 # Global memory manager - this replaces simple session history!
 _memory_manager = None
@@ -87,8 +97,13 @@ def add_to_session_history(message):
         compressed_count = memory_manager.compress_working_memory(keep_recent=15)
         print(f"Auto-compressed {compressed_count} old messages to long-term memory")
 
+# Add this to the top of modes/chat/core.py after imports
+
+
+# Replace your SmoothResponseDisplay class in modes/chat/core.py with this version:
+
 class SmoothResponseDisplay:
-    """Handles smooth, natural response display with proper pacing"""
+    """Handles smooth, natural response display with basic markdown support"""
     
     def __init__(self, console, status_label):
         self.console = console
@@ -97,10 +112,50 @@ class SmoothResponseDisplay:
         self.current_animation = None
         self.output_buffer = []
         self.is_capturing = False
-        self.user_has_scrolled = False  # Track if user manually scrolled
-        self.auto_scroll_enabled = True  # Can be disabled by user action
+        self.user_has_scrolled = False
+        self.auto_scroll_enabled = True
         self._setup_scroll_detection()
+        self._setup_markdown_tags()
         
+    def _setup_markdown_tags(self):
+        """Setup basic markdown text tags"""
+        from themes import get_current_theme
+        theme = get_current_theme()
+        
+        # Headers
+        self.console.tag_config("h1", font=("JetBrains Mono", 14, "bold"), foreground=theme["accent"])
+        self.console.tag_config("h2", font=("JetBrains Mono", 12, "bold"), foreground=theme["accent"])
+        self.console.tag_config("h3", font=("JetBrains Mono", 11, "bold"), foreground=theme["text"])
+        
+        # Text formatting
+        self.console.tag_config("bold", font=("Cascadia Code", 10, "bold"))
+        self.console.tag_config("italic", font=("Cascadia Code", 10, "italic"))
+        self.console.tag_config("code_inline", 
+                               font=("Cascadia Code", 9), 
+                               background=theme["border"],
+                               foreground=theme["accent"])
+        
+        # Code blocks
+        self.console.tag_config("code_block", 
+                               font=("Cascadia Code", 9),
+                               background=theme["border"],
+                               foreground=theme["text"],
+                               lmargin1=20, lmargin2=20,
+                               rmargin=20,
+                               spacing1=5, spacing3=5)
+        
+        # Lists
+        self.console.tag_config("list_item", lmargin1=20, lmargin2=30)
+        
+        # Links
+        self.console.tag_config("link", foreground=theme["accent"], underline=True)
+        
+        # Quotes
+        self.console.tag_config("quote", 
+                               font=("Cascadia Code", 10, "italic"),
+                               foreground=theme["dim"],
+                               lmargin1=20, lmargin2=20)
+    
     def show_thinking_dots(self, base_message="Mini thinking"):
         """Show animated thinking dots"""
         dots = ['', '.', '..', '...']
@@ -134,16 +189,16 @@ class SmoothResponseDisplay:
         return self
     
     def stop_animation(self):
-        """Stop current animation - FIXED VERSION"""
+        """Stop current animation"""
         self.is_active = False
         if self.current_animation:
             self.console.after_cancel(self.current_animation)
             self.current_animation = None
     
     def display_response_naturally(self, response_text, prefix="Mini: "):
-        """Display response with natural pacing and smooth scrolling"""
+        """Display response with basic markdown formatting and natural pacing"""
         self.stop_animation()
-        self.reset_scroll_state()  # Reset scroll state for new response
+        self.reset_scroll_state()
         
         # Clean up the response text
         response_text = response_text.strip()
@@ -152,23 +207,142 @@ class SmoothResponseDisplay:
             return
         
         # Insert prefix
-        self.console.insert(END, prefix)
-        self.console.see(END)
+        self.console.insert(tk.END, prefix)
+        self.console.see(tk.END)
         
-        # Split into natural chunks (sentences, paragraphs, etc.)
+        # Check for markdown and handle accordingly
+        if self._has_markdown_formatting(response_text):
+            self._display_with_basic_markdown(response_text)
+        else:
+            self._display_with_smooth_typing(response_text)
+    
+    def _has_markdown_formatting(self, text):
+        """Quick check for common markdown patterns"""
+        markdown_indicators = [
+            r'^#+\s',           # Headers
+            r'```',             # Code blocks
+            r'\*\*.*?\*\*',     # Bold
+            r'`[^`]+`',         # Inline code
+            r'^\s*[-*+]\s',     # Lists
+            r'^\>',             # Quotes
+        ]
+        
+        for pattern in markdown_indicators:
+            if re.search(pattern, text, re.MULTILINE):
+                return True
+        return False
+    
+    def _display_with_basic_markdown(self, text):
+        """Display text with basic markdown formatting applied"""
+        lines = text.split('\n')
+        in_code_block = False
+        code_lines = []
+        
+        for line in lines:
+            # Handle code blocks
+            if line.strip().startswith('```'):
+                if in_code_block:
+                    # End code block
+                    if code_lines:
+                        code_text = '\n'.join(code_lines)
+                        self.console.insert(tk.END, code_text + '\n', "code_block")
+                    code_lines = []
+                    in_code_block = False
+                else:
+                    # Start code block
+                    in_code_block = True
+                continue
+            
+            if in_code_block:
+                code_lines.append(line)
+                continue
+            
+            # Process regular line with inline formatting
+            self._insert_line_with_formatting(line + '\n')
+        
+        # Handle any remaining code block
+        if code_lines:
+            code_text = '\n'.join(code_lines)
+            self.console.insert(tk.END, code_text + '\n', "code_block")
+        
+        self.console.insert(tk.END, '\n')
+        self._smooth_scroll_to_end()
+        self.status_label.config(text="Ready")
+    
+    def _insert_line_with_formatting(self, line):
+        """Insert a line with basic markdown formatting"""
+        # Headers
+        if line.startswith('# '):
+            self.console.insert(tk.END, line[2:], "h1")
+            return
+        elif line.startswith('## '):
+            self.console.insert(tk.END, line[3:], "h2")
+            return
+        elif line.startswith('### '):
+            self.console.insert(tk.END, line[4:], "h3")
+            return
+        elif line.startswith('> '):
+            self.console.insert(tk.END, line[2:], "quote")
+            return
+        elif re.match(r'^\s*[-*+]\s', line):
+            self.console.insert(tk.END, line, "list_item")
+            return
+        
+        # Process inline formatting (bold, italic, code)
+        self._insert_with_inline_formatting(line)
+    
+    def _insert_with_inline_formatting(self, text):
+        """Insert text with inline markdown formatting"""
+        # Simple approach: process sequentially
+        remaining = text
+        
+        while remaining:
+            # Find the next markdown pattern
+            patterns = [
+                (r'\*\*([^*]+)\*\*', 'bold'),      # **bold**
+                (r'\*([^*]+)\*', 'italic'),        # *italic*
+                (r'`([^`]+)`', 'code_inline'),     # `code`
+            ]
+            
+            earliest_match = None
+            earliest_pos = len(remaining)
+            
+            for pattern, tag in patterns:
+                match = re.search(pattern, remaining)
+                if match and match.start() < earliest_pos:
+                    earliest_pos = match.start()
+                    earliest_match = (match, tag)
+            
+            if earliest_match:
+                match, tag = earliest_match
+                
+                # Insert text before the match
+                if match.start() > 0:
+                    self.console.insert(tk.END, remaining[:match.start()])
+                
+                # Insert the formatted text
+                self.console.insert(tk.END, match.group(1), tag)
+                
+                # Continue with remaining text
+                remaining = remaining[match.end():]
+            else:
+                # No more patterns, insert remaining text
+                self.console.insert(tk.END, remaining)
+                break
+    
+    def _display_with_smooth_typing(self, response_text):
+        """Original smooth typing for plain text"""
+        # Split into natural chunks
         chunks = self._split_into_natural_chunks(response_text)
         chunk_index = [0]
         
         def display_next_chunk():
             if chunk_index[0] < len(chunks):
                 chunk = chunks[chunk_index[0]]
-                
-                # Type out the chunk character by character with smart pacing
                 self._type_chunk_smoothly(chunk, chunk_index[0], len(chunks), display_next_chunk)
                 chunk_index[0] += 1
             else:
-                # All chunks displayed
-                self.console.insert(END, '\n')
+                self.console.insert(tk.END, '\n')
                 self._smooth_scroll_to_end()
                 self.status_label.config(text="Ready")
         
@@ -176,16 +350,13 @@ class SmoothResponseDisplay:
     
     def _split_into_natural_chunks(self, text):
         """Split text into natural reading chunks"""
-        # First split by double newlines (paragraphs)
         paragraphs = text.split('\n\n')
         chunks = []
         
         for para in paragraphs:
             if len(para) < 100:
-                # Short paragraph, keep as one chunk
                 chunks.append(para.strip())
             else:
-                # Long paragraph, split by sentences
                 sentences = re.split(r'(?<=[.!?])\s+', para)
                 current_chunk = ""
                 
@@ -200,8 +371,7 @@ class SmoothResponseDisplay:
                 if current_chunk.strip():
                     chunks.append(current_chunk.strip())
             
-            # Add paragraph break marker
-            if para != paragraphs[-1]:  # Not the last paragraph
+            if para != paragraphs[-1]:
                 chunks.append('\n')
         
         return [chunk for chunk in chunks if chunk]
@@ -209,9 +379,9 @@ class SmoothResponseDisplay:
     def _type_chunk_smoothly(self, chunk, chunk_num, total_chunks, callback):
         """Type a chunk with smooth character-by-character display"""
         if chunk == '\n':
-            self.console.insert(END, '\n\n')
+            self.console.insert(tk.END, '\n\n')
             self._smooth_scroll_to_end()
-            self.console.after(300, callback)  # Pause between paragraphs
+            self.console.after(300, callback)
             return
         
         chars = list(chunk)
@@ -220,21 +390,15 @@ class SmoothResponseDisplay:
         def type_next_char():
             if char_index[0] < len(chars):
                 char = chars[char_index[0]]
-                self.console.insert(END, char)
-                
-                # Smart scrolling - only scroll if near bottom
+                self.console.insert(tk.END, char)
                 self._smart_scroll()
-                
-                # Variable delay based on character type
                 delay = self._get_char_delay(char, char_index[0], len(chars))
-                
                 char_index[0] += 1
                 self.console.after(delay, type_next_char)
             else:
-                # Chunk complete
                 if chunk_num < total_chunks - 1:
-                    self.console.insert(END, ' ')
-                    self.console.after(200, callback)  # Brief pause between chunks
+                    self.console.insert(tk.END, ' ')
+                    self.console.after(200, callback)
                 else:
                     callback()
         
@@ -242,9 +406,8 @@ class SmoothResponseDisplay:
     
     def _get_char_delay(self, char, position, total_length):
         """Get appropriate delay for character based on context"""
-        base_delay = 25  # Base typing speed
+        base_delay = 25
         
-        # Punctuation gets longer pauses
         if char in '.!?':
             return base_delay * 3
         elif char in ',;:':
@@ -254,20 +417,18 @@ class SmoothResponseDisplay:
         elif char == ' ':
             return base_delay
         else:
-            # Regular characters - slight variation for natural feel
             import random
             return base_delay + random.randint(-5, 10)
     
     def _should_auto_scroll(self):
-        """Check if we should auto-scroll - respects user manual scrolling"""
+        """Check if we should auto-scroll"""
         if not self.auto_scroll_enabled:
             return False
             
         try:
             top, bottom = self.console.yview()
-            at_bottom = bottom > 0.8  # At bottom if within 5%
+            at_bottom = bottom > 0.8
             
-            # If user manually scrolled away from bottom, disable auto-scroll
             if not at_bottom and not self.user_has_scrolled:
                 self.user_has_scrolled = True
                 self.auto_scroll_enabled = False
@@ -280,43 +441,25 @@ class SmoothResponseDisplay:
     def _smart_scroll(self):
         """Only scroll if user is at bottom and hasn't manually scrolled"""
         if self._should_auto_scroll():
-            self.console.see(END)
+            self.console.see(tk.END)
 
     def _setup_scroll_detection(self):
         """Bind scroll events to detect manual user scrolling"""
         def on_manual_scroll(event):
-            """Called when user manually scrolls"""
             self.user_has_scrolled = True
             self.auto_scroll_enabled = False
         
         def on_mouse_wheel(event):
-            """Handle mouse wheel scrolling"""
             on_manual_scroll(event)
         
         def on_key_scroll(event):
-            """Handle keyboard scrolling (Page Up/Down, Arrow keys, etc.)"""
             if event.keysym in ['Up', 'Down', 'Page_Up', 'Page_Down', 'Home', 'End']:
                 on_manual_scroll(event)
         
-        # Bind mouse wheel events
-        self.console.bind('<MouseWheel>', on_mouse_wheel)  # Windows/Mac
-        self.console.bind('<Button-4>', on_mouse_wheel)    # Linux scroll up
-        self.console.bind('<Button-5>', on_mouse_wheel)    # Linux scroll down
-        
-        # Bind keyboard events
+        self.console.bind('<MouseWheel>', on_mouse_wheel)
+        self.console.bind('<Button-4>', on_mouse_wheel)    
+        self.console.bind('<Button-5>', on_mouse_wheel)    
         self.console.bind('<Key>', on_key_scroll)
-        
-        # Bind scrollbar events (if user clicks/drags scrollbar)
-        def on_scrollbar_command(*args):
-            self.user_has_scrolled = True
-            self.auto_scroll_enabled = False
-        
-        # Try to bind scrollbar command if it exists
-        try:
-            if hasattr(self.console, 'scrollbar'):
-                self.console.scrollbar.configure(command=on_scrollbar_command)
-        except:
-            pass
         
     def _smooth_scroll_to_end(self):
         """Smoothly scroll to the end only if auto-scroll is enabled"""
@@ -325,7 +468,7 @@ class SmoothResponseDisplay:
             
         def scroll_step(steps_remaining=5):
             if steps_remaining > 0 and self._should_auto_scroll():
-                self.console.see(END)
+                self.console.see(tk.END)
                 self.console.after(50, lambda: scroll_step(steps_remaining - 1))
         scroll_step()
     
@@ -339,24 +482,16 @@ class SmoothResponseDisplay:
         self.output_buffer = []
         self.is_capturing = True
         
-        # Store original console methods
         self.original_insert = self.console.insert
         self.original_see = self.console.see
         
-        # Replace with capturing versions
         def capturing_insert(position, text, tag=None):
-            if self.is_capturing and position == END:
-                # Buffer the output instead of writing directly
-                self.output_buffer.append({
-                    'text': text,
-                    'tag': tag
-                })
+            if self.is_capturing and position == tk.END:
+                self.output_buffer.append({'text': text, 'tag': tag})
             else:
-                # Pass through for non-END insertions or when not capturing
                 self.original_insert(position, text, tag)
         
         def capturing_see(position):
-            # Don't scroll during capture
             if not self.is_capturing:
                 self.original_see(position)
         
@@ -378,63 +513,46 @@ class SmoothResponseDisplay:
             self.status_label.config(text="Ready")
             return
         
-        # Combine all captured text while preserving tags
         combined_text = ""
         for item in self.output_buffer:
             combined_text += item['text']
         
-        # Clear the buffer
         self.output_buffer = []
         
-        # Play with typewriter effect
         if combined_text.strip():
-            # Add completion message before the actual output
             completion_msg = "\n✨ Here's what I found:\n\n"
             self.display_response_naturally(completion_msg + combined_text, prefix="")
         else:
             self.stop_animation()
-            self.console.insert(END, "✨ Task completed\n", "success")
+            self.console.insert(tk.END, "✨ Task completed\n", "success")
             self.status_label.config(text="Ready")
     
     def display_agent_response_smoothly(self, response, session_history):
         """Handle agent responses with universal typewriter effect"""
-        # Check if AI decided to use tools
         tool_calls = response.get("tool_calls")
         
         if not tool_calls:
-            # Simple response with natural display
             content = response.get("content", "I'm not sure how to respond.")
             self.display_response_naturally(content)
             return
         
-        # Agent response - start capturing output and keep working indicator
         self.show_working("Mini using tools")
+        self.console.insert(tk.END, "Mini is working with tools...\n", "accent")
+        self.console.see(tk.END)
         
-        # Display initial working message normally (not captured)
-        self.console.insert(END, "Mini is working with tools...\n", "accent")
-        self.console.see(END)
-        
-        # Start capturing all subsequent output
         self.start_output_capture()
         
         def process_agent_work():
             try:
-                # Run agent handler - all its output will be captured
                 handle_agent_response(response, session_history, self.console, self.status_label)
-                
-                # Stop capturing and play back with typewriter effect
                 self.stop_output_capture()
-                
-                # Play the captured output with typewriter effect
                 self.console.after(500, self.play_captured_output)
-                
             except Exception as e:
                 self.stop_output_capture()
                 self.stop_animation()
-                self.console.insert(END, f"\n❌ Error during Mini using tools: {str(e)}\n", "error")
+                self.console.insert(tk.END, f"\n❌ Error during Mini using tools: {str(e)}\n", "error")
                 self.status_label.config(text="Ready")
         
-        # Start agent processing after a brief delay
         self.console.after(800, process_agent_work)
 
 def handle_command(cmd, console, status_label, entry):
