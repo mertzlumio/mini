@@ -188,7 +188,7 @@ Mini can:
 │ > █                                 │
 └─────────────────────────────────────┘
 ```
-![Mini-Player Console Interface](https://github.com/mertzlumio/mini/screenshots)
+![Mini-Player Console Interface](https://github.com/mertzlumio/mini/screenshots/screenshot_20250810_202552.png)
 ---
 
 ## 📋 Requirements
