@@ -265,7 +265,7 @@ class SmoothResponseDisplay:
             
         try:
             top, bottom = self.console.yview()
-            at_bottom = bottom > 0.95  # At bottom if within 5%
+            at_bottom = bottom > 0.8  # At bottom if within 5%
             
             # If user manually scrolled away from bottom, disable auto-scroll
             if not at_bottom and not self.user_has_scrolled:
