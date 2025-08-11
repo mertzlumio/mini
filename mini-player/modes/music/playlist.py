@@ -4,7 +4,7 @@ import random
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 from pathlib import Path
-from config import CHAT_HISTORY_DIR
+from config import MUSIC_DIR
 
 @dataclass
 class Track:
@@ -63,7 +63,7 @@ class PlaylistManager:
     
     def __init__(self):
         # Create music data directory
-        self.music_dir = os.path.join(CHAT_HISTORY_DIR, 'music')
+        self.music_dir = MUSIC_DIR
         os.makedirs(self.music_dir, exist_ok=True)
         
         self.playlist_file = os.path.join(self.music_dir, 'playlist.json')

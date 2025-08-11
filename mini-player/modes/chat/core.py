@@ -9,13 +9,12 @@ import threading
 import time
 import re
 
-from config import CHAT_HISTORY_DIR, CHAT_HISTORY_LENGTH
+from config import CHAT_HISTORY_DIR, CHAT_HISTORY_LENGTH, MEMORY_DIR
 from .api_client import call_mistral_api
 from .capabilities.agent import handle_agent_response
 from .memory.history_sanitizer import sanitize_and_trim_history
 from .memory.memory_manager import MemoryManager
 
-# Add markdown formatter import - but make it optional for now
 try:
     from .markdown_formatter import create_markdown_formatter
     MARKDOWN_AVAILABLE = True
@@ -23,7 +22,6 @@ except ImportError:
     MARKDOWN_AVAILABLE = False
     print("Markdown formatter not available - using plain text display")
 
-# ... rest of your existing code until SmoothResponseDisplay class ...
 
 # Global memory manager - this replaces simple session history!
 _memory_manager = None
@@ -32,7 +30,7 @@ def get_memory_manager():
     """Get or create the memory manager instance"""
     global _memory_manager
     if _memory_manager is None:
-        memory_dir = os.path.join(CHAT_HISTORY_DIR, 'memory')
+        memory_dir = MEMORY_DIR
         _memory_manager = MemoryManager(memory_dir, call_mistral_api)
     return _memory_manager
 

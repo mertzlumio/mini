@@ -20,15 +20,18 @@ MISTRAL_URL = os.getenv("MISTRAL_URL", "https://api.mistral.ai/v1/chat/completio
 NOTES_FILE = os.path.expanduser(os.getenv("NOTES_FILE", "~/notes.txt"))
 
 # Enhanced chat history and memory configuration
-CHAT_HISTORY_DIR = os.path.expanduser(os.getenv("CHAT_HISTORY_DIR", "~/mini_chat_data"))
+CHAT_HISTORY_DIR = os.path.expanduser(os.getenv("CHAT_HISTORY_DIR"))
 CHAT_HISTORY_LENGTH = int(os.getenv("CHAT_HISTORY_LENGTH", "20"))
 
 # Memory system settings
-MEMORY_DIR = os.path.join(CHAT_HISTORY_DIR, "memory")
+MEMORY_DIR = os.path.expanduser(os.getenv("MEMORY_DIR"))
 AUTO_COMPRESS_THRESHOLD = int(os.getenv("AUTO_COMPRESS_THRESHOLD", "40"))
 FACT_IMPORTANCE_THRESHOLD = float(os.getenv("FACT_IMPORTANCE_THRESHOLD", "0.6"))
 
-#Screenshots folder
+# Music configuartion folder
+MUSIC_DIR = os.path.expanduser(os.getenv("MUSIC_DIR"))
+
+# Screenshots folder
 SCREENSHOTS_DIR = os.path.expanduser(os.getenv("SCREENSHOTS_DIR"))
 
 # Vision settings
