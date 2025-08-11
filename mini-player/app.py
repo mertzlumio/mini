@@ -179,7 +179,7 @@ def start_app():
     # Drag handle (small circle)
     drag_handle = tk.Label(
         header_frame, text="●", bg=THEME["border"], fg=THEME["accent"],
-        font=("Consolas", 12), width=2, cursor="fleur"
+        font=("Fira Code", 12), width=2, cursor="fleur"
     )
     drag_handle.pack(side=tk.LEFT, pady=3)
     
@@ -190,7 +190,7 @@ def start_app():
     # Mode + Status combined label
     mode_status_label = tk.Label(
         header_frame, text="[BASH] Ready", bg=THEME["border"], fg=THEME["text"],
-        font=("Consolas", 9), anchor="w"
+        font=("Fira Code", 10), anchor="w"
     )
     mode_status_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 8), pady=3)
     
@@ -206,7 +206,7 @@ def start_app():
     console = tk.Text(
         console_frame, height=8, bg=THEME["console_bg"], fg=THEME["text"],
         insertbackground=THEME["accent"], bd=0, highlightthickness=0,
-        font=("Cascadia Code", 10), wrap=tk.WORD,
+        font=("IBM Plex Mono", 10), wrap=tk.WORD,
         selectbackground=THEME["accent"], selectforeground=THEME["bg"],
         padx=6, pady=8, cursor="arrow",
         # Add subtle line spacing for ruled effect
@@ -238,7 +238,7 @@ def start_app():
     # Prompt symbol
     prompt_label = tk.Label(
         input_frame, text=">", bg=THEME["console_bg"], fg=THEME["accent"], 
-        font=("Cascadia Code", 14, "bold")  # Increased from 9 to 12
+        font=("JetBrains Mono", 14, "bold")  # Increased from 9 to 12
     )
     prompt_label.pack(side=tk.LEFT, padx=(2, 2), pady=1)  # Increased padding
 
@@ -246,7 +246,7 @@ def start_app():
     entry = tk.Entry(
         input_frame, bg=THEME["console_bg"], fg=THEME["text"],
         insertbackground=THEME["accent"], bd=0, highlightthickness=0,
-        font=("Cascadia Code", 12), selectbackground=THEME["accent"],  # Increased from 9 to 12
+        font=("JetBrains Mono", 12, "bold"), selectbackground=THEME["accent"],  # Increased from 9 to 12
         selectforeground=THEME["bg"], insertwidth=3  # Increased cursor width
     )
     entry.pack(fill=tk.X, side=tk.RIGHT, padx=(2, 15), pady=8, ipady=3) 

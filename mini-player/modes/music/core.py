@@ -83,7 +83,7 @@ def handle_play_command(audio_engine, playlist_manager, console):
         if playlist_manager.tracks:
             current_track = playlist_manager.jump_to_track(0)
         else:
-            console.insert(END, "📭 No tracks in playlist. Add some music first!\n", "warning")
+            console.insert(END, "No tracks in playlist. Add some music first!\n", "warning")
             console.insert(END, "Use: add ~/Music or add song.mp3\n", "dim")
             return
     
@@ -146,7 +146,7 @@ def handle_next_command(audio_engine, playlist_manager, console):
         if audio_engine.load_track(next_track.path):
             if audio_engine.play():
                 console.insert(END, f"⏭️  Next: {next_track.title}\n", "success")
-                console.insert(END, f"   Artist: {next_track.artist}\n", "dim")
+                console.insert(END, f"Artist: {next_track.artist}\n", "dim")
             else:
                 console.insert(END, "❌ Failed to play next track\n", "error")
         else:
@@ -169,20 +169,20 @@ def handle_previous_command(audio_engine, playlist_manager, console):
         else:
             console.insert(END, f"❌ Failed to load previous track: {prev_track.title}\n", "error")
     else:
-        console.insert(END, "🔚 Beginning of playlist\n", "dim")
+        console.insert(END, "Beginning of playlist\n", "dim")
 
 def handle_volume_command(parts, audio_engine, console):
     """Handle volume control commands"""
     if len(parts) < 2:
         current_vol = audio_engine.volume
-        console.insert(END, f"🔊 Current volume: {current_vol}%\n", "accent")
+        console.insert(END, f"Current volume: {current_vol}%\n", "accent")
         console.insert(END, "Usage: vol <0-100>\n", "dim")
         return
     
     try:
         volume = int(parts[1])
         if audio_engine.set_volume(volume):
-            console.insert(END, f"🔊 Volume set to {audio_engine.volume}%\n", "success")
+            console.insert(END, f"Volume set to {audio_engine.volume}%\n", "success")
         else:
             console.insert(END, "❌ Failed to set volume\n", "error")
     except ValueError:
@@ -208,7 +208,7 @@ def handle_add_command(parts, playlist_manager, console):
             console.insert(END, f"➕ Added: {track_name}\n", "success")
         else:
             console.insert(END, f"❌ Failed to add: {path}\n", "error")
-            console.insert(END, f"   (File not found or unsupported format)\n", "dim")
+            console.insert(END, f"File not found or unsupported format)\n", "dim")
     
     elif os.path.isdir(path):
         # Folder
@@ -297,7 +297,7 @@ def handle_search_command(parts, playlist_manager, console):
     matches = playlist_manager.find_tracks(query)
     
     if matches:
-        console.insert(END, f"🔍 Found {len(matches)} tracks matching '{query}':\n", "accent")
+        console.insert(END, f"Found {len(matches)} tracks matching '{query}':\n", "accent")
         for idx, track in matches:
             console.insert(END, f"  {idx + 1}. {track.title} - {track.artist}\n")
     else:
@@ -322,11 +322,11 @@ def display_playlist(playlist_manager, audio_engine, console):
     tracks = playlist_manager.tracks
     
     if not tracks:
-        console.insert(END, "📭 Playlist is empty\n", "dim")
+        console.insert(END, "Playlist is empty\n", "dim")
         console.insert(END, "Add music with: add ~/Music\n", "dim")
         return
     
-    console.insert(END, f"🎵 Playlist ({len(tracks)} tracks):\n", "accent")
+    console.insert(END, f"Playlist ({len(tracks)} tracks):\n", "accent")
     
     current_track_path = audio_engine.get_current_track()
     current_index = playlist_manager.current_index
@@ -336,7 +336,7 @@ def display_playlist(playlist_manager, audio_engine, console):
     end_idx = min(len(tracks), start_idx + 10)
     
     if start_idx > 0:
-        console.insert(END, f"   ... ({start_idx} more above)\n", "dim")
+        console.insert(END, f"... ({start_idx} more above)\n", "dim")
     
     for i in range(start_idx, end_idx):
         track = tracks[i]
@@ -347,12 +347,12 @@ def display_playlist(playlist_manager, audio_engine, console):
         if track.duration > 0:
             minutes = int(track.duration // 60)
             seconds = int(track.duration % 60)
-            duration_str = f" ({minutes}:{seconds:02d})"
+            duration_str = f"({minutes}:{seconds:02d})"
         
         console.insert(END, f"{prefix}{i + 1}. {track.title} - {track.artist}{duration_str}\n")
     
     if end_idx < len(tracks):
-        console.insert(END, f"   ... ({len(tracks) - end_idx} more below)\n", "dim")
+        console.insert(END, f"... ({len(tracks) - end_idx} more below)\n", "dim")
     
     # Show playlist status
     status_parts = []
@@ -382,8 +382,8 @@ def display_status(audio_engine, playlist_manager, console):
     console.insert(END, f"{icon} Status: {state.value.title()}\n", "accent")
     
     if current_track:
-        console.insert(END, f"🎵 Track: {current_track.title}\n")
-        console.insert(END, f"👤 Artist: {current_track.artist}\n")
+        console.insert(END, f"Track: {current_track.title}\n")
+        console.insert(END, f"Artist: {current_track.artist}\n")
         
         # Position info
         if state != PlaybackState.STOPPED:
@@ -400,8 +400,8 @@ def display_status(audio_engine, playlist_manager, console):
     
     # Playlist info
     playlist_info = playlist_manager.get_playlist_info()
-    console.insert(END, f"📋 Playlist: {playlist_info['current_index'] + 1}/{playlist_info['total_tracks']}\n", "dim")
-    console.insert(END, f"🔊 Volume: {audio_engine.volume}%\n", "dim")
+    console.insert(END, f"Playlist: {playlist_info['current_index'] + 1}/{playlist_info['total_tracks']}\n", "dim")
+    console.insert(END, f"Volume: {audio_engine.volume}%\n", "dim")
 
 def show_music_help(console):
     """Display music mode help"""

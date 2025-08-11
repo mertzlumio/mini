@@ -97,6 +97,9 @@ class SmoothResponseDisplay:
         self.current_animation = None
         self.output_buffer = []
         self.is_capturing = False
+        self.user_has_scrolled = False  # Track if user manually scrolled
+        self.auto_scroll_enabled = True  # Can be disabled by user action
+        self._setup_scroll_detection()
         
     def show_thinking_dots(self, base_message="Mini thinking"):
         """Show animated thinking dots"""
@@ -140,6 +143,7 @@ class SmoothResponseDisplay:
     def display_response_naturally(self, response_text, prefix="Mini: "):
         """Display response with natural pacing and smooth scrolling"""
         self.stop_animation()
+        self.reset_scroll_state()  # Reset scroll state for new response
         
         # Clean up the response text
         response_text = response_text.strip()
@@ -254,28 +258,81 @@ class SmoothResponseDisplay:
             import random
             return base_delay + random.randint(-5, 10)
     
-    def _smart_scroll(self):
-        """Only scroll if user is near the bottom"""
-        # Check if we're near the bottom of the text
-        try:
-            # Get the current view position
-            top, bottom = self.console.yview()
+    def _should_auto_scroll(self):
+        """Check if we should auto-scroll - respects user manual scrolling"""
+        if not self.auto_scroll_enabled:
+            return False
             
-            # If we're viewing the bottom 20% of content, auto-scroll
-            if bottom > 0.8:
-                self.console.see(END)
+        try:
+            top, bottom = self.console.yview()
+            at_bottom = bottom > 0.95  # At bottom if within 5%
+            
+            # If user manually scrolled away from bottom, disable auto-scroll
+            if not at_bottom and not self.user_has_scrolled:
+                self.user_has_scrolled = True
+                self.auto_scroll_enabled = False
+                return False
+            
+            return at_bottom and self.auto_scroll_enabled
         except:
-            # Fallback to always scroll
+            return self.auto_scroll_enabled
+
+    def _smart_scroll(self):
+        """Only scroll if user is at bottom and hasn't manually scrolled"""
+        if self._should_auto_scroll():
             self.console.see(END)
-    
+
+    def _setup_scroll_detection(self):
+        """Bind scroll events to detect manual user scrolling"""
+        def on_manual_scroll(event):
+            """Called when user manually scrolls"""
+            self.user_has_scrolled = True
+            self.auto_scroll_enabled = False
+        
+        def on_mouse_wheel(event):
+            """Handle mouse wheel scrolling"""
+            on_manual_scroll(event)
+        
+        def on_key_scroll(event):
+            """Handle keyboard scrolling (Page Up/Down, Arrow keys, etc.)"""
+            if event.keysym in ['Up', 'Down', 'Page_Up', 'Page_Down', 'Home', 'End']:
+                on_manual_scroll(event)
+        
+        # Bind mouse wheel events
+        self.console.bind('<MouseWheel>', on_mouse_wheel)  # Windows/Mac
+        self.console.bind('<Button-4>', on_mouse_wheel)    # Linux scroll up
+        self.console.bind('<Button-5>', on_mouse_wheel)    # Linux scroll down
+        
+        # Bind keyboard events
+        self.console.bind('<Key>', on_key_scroll)
+        
+        # Bind scrollbar events (if user clicks/drags scrollbar)
+        def on_scrollbar_command(*args):
+            self.user_has_scrolled = True
+            self.auto_scroll_enabled = False
+        
+        # Try to bind scrollbar command if it exists
+        try:
+            if hasattr(self.console, 'scrollbar'):
+                self.console.scrollbar.configure(command=on_scrollbar_command)
+        except:
+            pass
+        
     def _smooth_scroll_to_end(self):
-        """Smoothly scroll to the end"""
+        """Smoothly scroll to the end only if auto-scroll is enabled"""
+        if not self._should_auto_scroll():
+            return
+            
         def scroll_step(steps_remaining=5):
-            if steps_remaining > 0:
+            if steps_remaining > 0 and self._should_auto_scroll():
                 self.console.see(END)
                 self.console.after(50, lambda: scroll_step(steps_remaining - 1))
-        
         scroll_step()
+    
+    def reset_scroll_state(self):
+        """Reset scroll state - call this when starting a new response"""
+        self.user_has_scrolled = False
+        self.auto_scroll_enabled = True
     
     def start_output_capture(self):
         """Start capturing console output"""
@@ -467,10 +524,14 @@ def handle_command(cmd, console, status_label, entry):
 
         except requests.exceptions.HTTPError as e:
             response_display.stop_animation()
-            console.after(0, lambda: handle_api_error(e, console, status_label))
+            # Capture the exception in the closure by making a copy
+            error = e
+            console.after(0, lambda: handle_api_error(error, console, status_label))
         except Exception as e:
             response_display.stop_animation()
-            console.after(0, lambda: handle_general_error(e, console, status_label))
+            # Capture the exception in the closure by making a copy
+            error = e
+            console.after(0, lambda: handle_general_error(error, console, status_label))
 
     # Process API call in background thread
     thread = threading.Thread(target=process_in_background, daemon=True)
