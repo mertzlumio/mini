@@ -206,7 +206,7 @@ def start_app():
     console = tk.Text(
         console_frame, height=8, bg=THEME["console_bg"], fg=THEME["text"],
         insertbackground=THEME["accent"], bd=0, highlightthickness=0,
-        font=("IBM Plex Mono", 10), wrap=tk.WORD,
+        font=("Cascadia Code", 10), wrap=tk.WORD,
         selectbackground=THEME["accent"], selectforeground=THEME["bg"],
         padx=6, pady=8, cursor="arrow",
         # Add subtle line spacing for ruled effect

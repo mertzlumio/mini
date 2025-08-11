@@ -144,26 +144,26 @@ def display_music_status(console):
         current_track = playlist_manager.get_current_track()
         playlist_info = playlist_manager.get_playlist_info()
         
-        console.insert(END, f"🎵 Music Player Ready\n", "accent")
+        console.insert(END, f"Music Player Ready\n", "accent")
         
         if current_track:
-            console.insert(END, f"  Current: {current_track.title}\n", "dim")
-            console.insert(END, f"  Status: {state.value.title()}\n", "dim")
+            console.insert(END, f"Current: {current_track.title}\n", "dim")
+            console.insert(END, f"Status: {state.value.title()}\n", "dim")
         
         track_count = playlist_info['total_tracks']
         if track_count > 0:
-            console.insert(END, f"  Playlist: {track_count} track{'s' if track_count != 1 else ''}\n", "dim")
+            console.insert(END, f"Playlist: {track_count} track{'s' if track_count != 1 else ''}\n", "dim")
         else:
-            console.insert(END, "  Playlist empty - use 'add ~/Music'\n", "dim")
+            console.insert(END, "Playlist empty - use 'add ~/Music'\n", "dim")
             
-        console.insert(END, "  Type 'help' for commands\n", "dim")
+        console.insert(END, "Type 'help' for commands\n", "dim")
         
     except ImportError as e:
-        console.insert(END, "🎵 Music Player (dependencies missing)\n", "warning")
-        console.insert(END, f"  Error: {str(e)}\n", "dim")
+        console.insert(END, "Music Player (dependencies missing)\n", "warning")
+        console.insert(END, f"Error: {str(e)}\n", "dim")
     except Exception as e:
-        console.insert(END, "🎵 Music Player (initialization error)\n", "error")
-        console.insert(END, f"  Error: {str(e)}\n", "dim")
+        console.insert(END, "Music Player (initialization error)\n", "error")
+        console.insert(END, f"Error: {str(e)}\n", "dim")
 
 def on_up(entry):
     global history_index
