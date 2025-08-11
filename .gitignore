@@ -28,9 +28,9 @@ notes.txt
 # Folders/files not related to the app
 trash/
 
-# Chat history and memory data (keep only the infrastructure)
-# Ignore everything in history folder
-.history/*
+
+# Ignore everything in files folder
+files/
 
 
 # Any other chat data directories

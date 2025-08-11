@@ -28,6 +28,9 @@ MEMORY_DIR = os.path.join(CHAT_HISTORY_DIR, "memory")
 AUTO_COMPRESS_THRESHOLD = int(os.getenv("AUTO_COMPRESS_THRESHOLD", "40"))
 FACT_IMPORTANCE_THRESHOLD = float(os.getenv("FACT_IMPORTANCE_THRESHOLD", "0.6"))
 
+#Screenshots folder
+SCREENSHOTS_DIR = os.path.expanduser(os.getenv("SCREENSHOTS_DIR"))
+
 # Vision settings
 SCREENSHOT_QUALITY = int(os.getenv("SCREENSHOT_QUALITY", "75"))
 MAX_IMAGE_DIMENSION = int(os.getenv("MAX_IMAGE_DIMENSION", "1024"))

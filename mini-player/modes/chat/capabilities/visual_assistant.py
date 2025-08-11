@@ -6,8 +6,10 @@ from datetime import datetime
 from PIL import ImageGrab, Image
 import io
 
+from config import SCREENSHOTS_DIR
+
 class VisualAssistant:
-    def __init__(self, screenshots_dir="screenshots"):
+    def __init__(self, screenshots_dir="SCREENSHOTS_DIR"):
         self.screenshots_dir = screenshots_dir
         os.makedirs(screenshots_dir, exist_ok=True)
         self.last_screenshot = None

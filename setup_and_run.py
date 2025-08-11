@@ -8,6 +8,8 @@ VENV_DIR = ".venv"
 APP_DIR = os.path.dirname(os.path.abspath(__file__))  # Root directory where this script is
 MAIN_APP_PATH = os.path.join(APP_DIR, "mini-player", "__main__.py")  # Main entry point
 REQUIREMENTS_FILE = os.path.join(APP_DIR, "requirements.txt")
+ENV_PATH = os.path.join(APP_DIR, ".env")
+ENV_EXAMPLE_PATH = os.path.join(APP_DIR, ".env.example")
 
 # --- Helper Functions ---
 
@@ -83,8 +85,17 @@ def setup_and_run():
         print("All Python packages installed.")
     else:
         print(f"Warning: {REQUIREMENTS_FILE} not found. Skipping package installation.")
+    # 4. Setting up .env
+    if not os.path.exists(ENV_PATH):
+        if os.path.exists(ENV_EXAMPLE_PATH):
+            print_status("Creating .env from .env.example...")
+            with open(ENV_EXAMPLE_PATH, "r") as src, open(ENV_PATH, "w") as dst:
+                dst.write(src.read())
+            print("Please update your .env file with real API keys and paths.")
+        else:
+            print("No .env.example found. Please create one.")
 
-    # 4. Global Hotkey Setup Guidance (OS-specific)
+    # 5. Global Hotkey Setup Guidance (OS-specific)
     print_status("Global Hotkey Setup Guidance")
     if platform.system() == "Linux":
         print("On Linux, global hotkeys can be tricky due to display server permissions...")
@@ -94,7 +105,7 @@ def setup_and_run():
     elif platform.system() == "Windows":
         print("On Windows, hotkeys should work out of the box unless another app is using them.")
 
-    # 5. Launch the Application
+    # 6. Launch the Application
     print_status("Launching Mini Player...")
     print("Press Ctrl+Shift+M to toggle window visibility.")
     print("Press Escape to exit.")

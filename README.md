@@ -68,8 +68,21 @@ git clone https://github.com/mertzlumio/mini.git
 cd mini
 ```
 
-### 2. **Configure Your AI**
-Create a `.env` file in the root directory:
+
+### 2. **One-Command Setup**
+```bash
+python setup_and_run.py
+```
+
+This script automatically:
+- Creates a virtual environment
+- Installs all dependencies
+- Creates .env file to be configured
+- Configures global hotkeys
+- Launches Mini-Player
+
+### 3. **Configure Your AI**
+Configure .env variables
 
 ```env
 # Required: Your Mistral AI API key
@@ -83,18 +96,6 @@ DEBUG=false
 ```
 
 **Get your API key:** [Mistral AI Console](https://console.mistral.ai/)
-
-### 3. **One-Command Setup**
-```bash
-python setup_and_run.py
-```
-
-This script automatically:
-- Creates a virtual environment
-- Installs all dependencies
-- Configures global hotkeys
-- Launches Mini-Player
-
 ---
 
 ## 🎮 How to Use
@@ -255,13 +256,13 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 **Mertz Lumio** ([@mertzlumio](https://github.com/mertzlumio))
 
-Built with ❤️ for productivity enthusiasts who love minimal, powerful tools.
+Built with ❤️ for emotional support and enthusiasts who love minimal, powerful tools.
 
 ---
 
 ## ⭐ Show Your Support
 
-If Mini-Player helps boost your productivity, give it a star! ⭐
+If Mini-Player helps you, give it a star! ⭐
 
 **Questions?** Open an issue or reach out - Mini-Player is built for the community.
 
