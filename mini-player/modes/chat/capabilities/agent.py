@@ -3,9 +3,11 @@ import json
 from tkinter import END
 from . import task_manager, web_search, file_reader, memory_tools, visual_assistant
 from ..api_client import call_mistral_api, call_mistral_vision_api, supports_vision
+from . import bash_executor
 
 # Tool registry - maps tool names to actual functions
 TOOL_REGISTRY = {
+    # Existing tools...
     "add_task_to_notes": task_manager.add_task_to_notes,
     "search_web": web_search.search_web,
     "read_file": file_reader.read_file,
@@ -14,10 +16,15 @@ TOOL_REGISTRY = {
     "recall_information": memory_tools.recall_information,
     "update_preference": memory_tools.update_preference,
     "get_memory_stats": memory_tools.get_memory_stats,
-    # Visual analysis tools
     "capture_screen_context": visual_assistant.capture_screen_context,
     "get_screen_dimensions": visual_assistant.get_screen_dimensions,
-    "analyze_screen_region": visual_assistant.analyze_screen_region
+    "analyze_screen_region": visual_assistant.analyze_screen_region,
+    
+    # Add new bash tools
+    "execute_bash_command": bash_executor.execute_bash_command,
+    "get_current_directory": bash_executor.get_current_directory,
+    "change_directory": bash_executor.change_directory,
+    "get_bash_command_history": bash_executor.get_bash_command_history,
 }
 
 def handle_agent_response(response, session_history, console, status_label):
@@ -156,9 +163,25 @@ def execute_autonomous_tool(tool_call, console):
             # Parse arguments and execute tool autonomously
             arguments = json.loads(function_info.get("arguments", "{}"))
             tool_function = TOOL_REGISTRY[tool_name]
-            
+            if tool_name == "execute_bash_command":
+                command = arguments.get("command", "")
+                console.insert(END, f"  🖥️  Executing: {command}\n", "accent")
+                result = tool_function(**arguments)
+                
+            elif tool_name == "get_current_directory":
+                result = tool_function()
+                console.insert(END, f"  📁 Checking current directory\n", "success")
+                
+            elif tool_name == "change_directory":
+                path = arguments.get("path", "")
+                console.insert(END, f"  📂 Changing to: {path}\n", "success")
+                result = tool_function(**arguments)
+                
+            elif tool_name == "get_bash_command_history":
+                console.insert(END, f"  📚 Retrieving command history\n", "success")
+                result = tool_function(**arguments)
             # Special handling for visual tools
-            if tool_name == "capture_screen_context":
+            elif tool_name == "capture_screen_context":
                 region = arguments.get("region")
                 if region and len(region) == 4:
                     result = tool_function(region=tuple(region), save_screenshot=arguments.get("save_screenshot", True))

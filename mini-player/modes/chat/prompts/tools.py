@@ -260,7 +260,79 @@ MISTRAL_TOOL_DEFINITIONS = [
                 "required": ["x1", "y1", "x2", "y2"]
             }
         }
-    }
+    },
+    {
+            "type": "function",
+            "function": {
+                "name": "execute_bash_command",
+                "description": "Execute bash commands securely with built-in safety checks. Can run system commands, file operations, git commands, development tools, and more. Automatically handles directory context.",
+                "parameters": {
+                    "type": "object", 
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "The bash command to execute (e.g., 'ls -la', 'git status', 'python --version', 'find . -name \"*.py\"')"
+                        },
+                        "timeout": {
+                            "type": "integer",
+                            "description": "Maximum execution time in seconds (default: 30)",
+                            "default": 30
+                        },
+                        "safe_mode": {
+                            "type": "boolean", 
+                            "description": "Enable security restrictions to block dangerous commands (default: True)",
+                            "default": True
+                        }
+                    },
+                    "required": ["command"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_current_directory",
+                "description": "Get the current working directory and list its contents for context",
+                "parameters": {
+                    "type": "object",
+                    "properties": {}
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "change_directory", 
+                "description": "Change the working directory for subsequent bash operations",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "The directory path to change to (absolute or relative)"
+                        }
+                    },
+                    "required": ["path"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_bash_command_history",
+                "description": "Show recent bash commands executed in this session",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "count": {
+                            "type": "integer",
+                            "description": "Number of recent commands to show (default: 5)",
+                            "default": 5
+                        }
+                    }
+                }
+            }
+        }
 ]
 
 # Legacy format for documentation (if needed)
