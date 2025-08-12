@@ -47,6 +47,6 @@ Get your API key: [Mistral AI Console](https://console.mistral.ai/)
 └─────────────────────────────────────┘
 ```
 
-<!-- ![Mini-Player Console Interface](/screenshots/screenshot_20250810_202552.png) -->
+![Mini-Player Console Interface](/screenshots/screenshot_20250810_202552.png)
 
 
