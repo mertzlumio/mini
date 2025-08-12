@@ -11,6 +11,242 @@ from .autonomous_startup import AutonomousStartupManager
 class StartupIntegrationManager:
     """Manages integration between autonomous startup and existing chat system"""
     
+    def __init__(self, 
+                 memory_manager, 
+                 api_client,
+                 console_widget,
+                 status_label,
+                 memory_dir: str):
+        self.memory_manager = memory_manager
+        self.api_client = api_client
+        self.console = console_widget
+        self.status_label = status_label
+        self.memory_dir = memory_dir
+        
+        # Initialize autonomous startup manager
+        self.startup_manager = AutonomousStartupManager(
+            memory_dir, memory_manager, api_client
+        )
+        
+        # State tracking
+        self.startup_active = False
+        self.awaiting_user_response = False
+        self.current_step_data = None
+        
+        # Callbacks for UI integration
+        self.on_startup_complete = None
+        self.on_user_input_needed = None
+    
+    def initiate_autonomous_startup(self, 
+                                  on_complete: Optional[Callable] = None,
+                                  on_input_needed: Optional[Callable] = None):
+        """Start the autonomous startup sequence with UI integration"""
+        
+        self.on_startup_complete = on_complete
+        self.on_user_input_needed = on_input_needed
+        self.startup_active = True
+        
+        # Show startup indicator
+        self.status_label.config(text="🚀 Mini starting up...")
+        self.console.insert("end", "=" * 50 + "\n", "accent")
+        self.console.insert("end", "🤖 MINI AUTONOMOUS STARTUP\n", "accent")
+        self.console.insert("end", "=" * 50 + "\n", "accent")
+        
+        # Start startup sequence in background
+        startup_thread = threading.Thread(
+            target=self._execute_startup_sequence,
+            daemon=True
+        )
+        startup_thread.start()
+    
+    def _execute_startup_sequence(self):
+        """Execute startup sequence with proper UI updates"""
+        try:
+            # Initiate startup
+            result = self.startup_manager.initiate_startup()
+            
+            # Update UI on main thread
+            self.console.after(0, lambda: self._handle_startup_step(result))
+            
+        except Exception as e:
+            error_msg = f"Startup error: {str(e)}"
+            self.console.after(0, lambda: self._handle_startup_error(error_msg))
+    
+    def _handle_startup_step(self, step_result: Dict):
+        """Handle a step in the startup sequence"""
+        step_type = step_result.get("type")
+        message = step_result.get("message", "")
+        
+        if step_type == "complete":
+            self._handle_startup_complete()
+            
+        elif step_type == "greeting":
+            self._display_mini_message(message, "greeting")
+            
+            if step_result.get("awaiting_response"):
+                self._setup_user_input_waiting()
+                
+        elif step_type == "planning":
+            self._display_mini_message(message, "planning")
+            
+            if step_result.get("awaiting_response"):
+                self._setup_user_input_waiting()
+                
+        elif step_type == "error":
+            self._handle_startup_error(message)
+        
+        self.current_step_data = step_result
+    
+    def _display_mini_message(self, message: str, message_type: str = "general"):
+        """Display Mini's message with appropriate formatting"""
+        
+        # Add icon based on message type
+        if message_type == "greeting":
+            icon = "👋"
+        elif message_type == "planning":
+            icon = "📋"
+        else:
+            icon = "🤖"
+        
+        # Display with smooth typing effect (reuse existing smooth display)
+        self.console.insert("end", f"\n{icon} Mini: ", "accent")
+        
+        # Use existing smooth response display if available
+        try:
+            from ..core import SmoothResponseDisplay
+            smooth_display = SmoothResponseDisplay(self.console, self.status_label)
+            smooth_display.display_response_naturally(message, prefix="")
+        except ImportError:
+            # Fallback to simple display
+            self.console.insert("end", f"{message}\n")
+            self.console.see("end")
+    
+    def _setup_user_input_waiting(self):
+        """Setup UI to wait for user input"""
+        self.awaiting_user_response = True
+        self.status_label.config(text="💭 Waiting for your response...")
+        
+        # Enable input field and set focus
+        if self.on_user_input_needed:
+            self.on_user_input_needed()
+    
+    def handle_user_input(self, user_input: str):
+        """Handle user input during startup sequence"""
+        if not self.awaiting_user_response or not self.startup_active:
+            return False  # Not handled by startup system
+        
+        # Add user message to console
+        self.console.insert("end", f"\nYou: {user_input}\n", "user")
+        self.console.see("end")
+        
+        # Process response
+        self.awaiting_user_response = False
+        self.status_label.config(text="🤔 Mini thinking...")
+        
+        # Process in background
+        def process_response():
+            try:
+                result = self.startup_manager.process_user_response(user_input)
+                self.console.after(0, lambda: self._handle_startup_step(result))
+            except Exception as e:
+                error_msg = f"Error processing response: {str(e)}"
+                self.console.after(0, lambda: self._handle_startup_error(error_msg))
+        
+        response_thread = threading.Thread(target=process_response, daemon=True)
+        response_thread.start()
+        
+        return True  # Handled by startup system
+    
+    def _handle_startup_complete(self):
+        """Handle completion of startup sequence"""
+        self.startup_active = False
+        self.awaiting_user_response = False
+        
+        self.console.insert("end", "\n" + "=" * 50 + "\n", "success")
+        self.console.insert("end", "✅ Startup complete! Ready to assist you.\n", "success")
+        self.console.insert("end", "=" * 50 + "\n\n", "success")
+        
+        self.status_label.config(text="Ready")
+        
+        # Call completion callback
+        if self.on_startup_complete:
+            self.on_startup_complete()
+    
+    def _handle_startup_error(self, error_message: str):
+        """Handle startup errors"""
+        self.startup_active = False
+        self.awaiting_user_response = False
+        
+        self.console.insert("end", f"\n❌ {error_message}\n", "error")
+        self.console.insert("end", "Falling back to normal chat mode...\n", "dim")
+        
+        self.status_label.config(text="Ready (Startup failed)")
+        
+        # Still call completion callback to restore normal operation
+        if self.on_startup_complete:
+            self.on_startup_complete()
+    
+    def is_startup_active(self) -> bool:
+        """Check if startup sequence is currently active"""
+        return self.startup_active
+    
+    def is_awaiting_user_input(self) -> bool:
+        """Check if startup is waiting for user input"""
+        return self.awaiting_user_response
+    
+    def get_startup_progress(self) -> Dict:
+        """Get current startup progress"""
+        if not self.startup_active:
+            return {"active": False}
+        
+        status = self.startup_manager.get_startup_status()
+        status["active"] = True
+        status["awaiting_input"] = self.awaiting_user_response
+        return status
+    
+    def force_complete_startup(self):
+        """Force complete startup sequence (emergency fallback)"""
+        self.startup_active = False
+        self.awaiting_user_response = False
+        self.status_label.config(text="Ready")
+        
+        if self.on_startup_complete:
+            self.on_startup_complete()
+
+
+# Modified chat core integration
+class StartupEnabledChatHandler:
+    """Enhanced chat handler with autonomous startup capability"""
+    
+    def __init__(self, console, status_label, entry_widget, memory_dir: str):
+        self.console = console
+        self.status_label = status_label
+        self.entry_widget = entry_widget
+        self.memory_dir = memory_dir
+        
+        # Initialize components (will be set by main app)
+        self.memory_manager = None
+        self.api_client = None
+        self.startup_integration = None
+        
+        # State
+        self.normal_chat_enabled = False
+        self.startup_completed = False
+    
+    def initialize_components(self, memory_manager, api_client):
+        """Initialize with memory manager and API client"""
+        self.memory_manager = memory_manager
+        self.api_client = api_client
+        
+        # Initialize startup integration
+        self.startup_integration = StartupIntegrationManager(
+            memory_manager=memory_manager,
+            api_client=api_client,
+            console_widget=self.console,
+            status_label=self.status_label,
+            memory_dir=self.memory_dir
+        )
+    
     def start_mini_session(self):
         """Start Mini session with autonomous startup"""
         if not self.memory_manager or not self.api_client:
@@ -251,240 +487,4 @@ def test_startup_integration():
     root.mainloop()
 
 if __name__ == "__main__":
-    test_startup_integration() __init__(self, 
-                 memory_manager, 
-                 api_client,
-                 console_widget,
-                 status_label,
-                 memory_dir: str):
-        self.memory_manager = memory_manager
-        self.api_client = api_client
-        self.console = console_widget
-        self.status_label = status_label
-        self.memory_dir = memory_dir
-        
-        # Initialize autonomous startup manager
-        self.startup_manager = AutonomousStartupManager(
-            memory_dir, memory_manager, api_client
-        )
-        
-        # State tracking
-        self.startup_active = False
-        self.awaiting_user_response = False
-        self.current_step_data = None
-        
-        # Callbacks for UI integration
-        self.on_startup_complete = None
-        self.on_user_input_needed = None
-    
-    def initiate_autonomous_startup(self, 
-                                  on_complete: Optional[Callable] = None,
-                                  on_input_needed: Optional[Callable] = None):
-        """Start the autonomous startup sequence with UI integration"""
-        
-        self.on_startup_complete = on_complete
-        self.on_user_input_needed = on_input_needed
-        self.startup_active = True
-        
-        # Show startup indicator
-        self.status_label.config(text="🚀 Mini starting up...")
-        self.console.insert("end", "=" * 50 + "\n", "accent")
-        self.console.insert("end", "🤖 MINI AUTONOMOUS STARTUP\n", "accent")
-        self.console.insert("end", "=" * 50 + "\n", "accent")
-        
-        # Start startup sequence in background
-        startup_thread = threading.Thread(
-            target=self._execute_startup_sequence,
-            daemon=True
-        )
-        startup_thread.start()
-    
-    def _execute_startup_sequence(self):
-        """Execute startup sequence with proper UI updates"""
-        try:
-            # Initiate startup
-            result = self.startup_manager.initiate_startup()
-            
-            # Update UI on main thread
-            self.console.after(0, lambda: self._handle_startup_step(result))
-            
-        except Exception as e:
-            error_msg = f"Startup error: {str(e)}"
-            self.console.after(0, lambda: self._handle_startup_error(error_msg))
-    
-    def _handle_startup_step(self, step_result: Dict):
-        """Handle a step in the startup sequence"""
-        step_type = step_result.get("type")
-        message = step_result.get("message", "")
-        
-        if step_type == "complete":
-            self._handle_startup_complete()
-            
-        elif step_type == "greeting":
-            self._display_mini_message(message, "greeting")
-            
-            if step_result.get("awaiting_response"):
-                self._setup_user_input_waiting()
-                
-        elif step_type == "planning":
-            self._display_mini_message(message, "planning")
-            
-            if step_result.get("awaiting_response"):
-                self._setup_user_input_waiting()
-                
-        elif step_type == "error":
-            self._handle_startup_error(message)
-        
-        self.current_step_data = step_result
-    
-    def _display_mini_message(self, message: str, message_type: str = "general"):
-        """Display Mini's message with appropriate formatting"""
-        
-        # Add icon based on message type
-        if message_type == "greeting":
-            icon = "👋"
-        elif message_type == "planning":
-            icon = "📋"
-        else:
-            icon = "🤖"
-        
-        # Display with smooth typing effect (reuse existing smooth display)
-        self.console.insert("end", f"\n{icon} Mini: ", "accent")
-        
-        # Use existing smooth response display if available
-        try:
-            from ..core import SmoothResponseDisplay
-            smooth_display = SmoothResponseDisplay(self.console, self.status_label)
-            smooth_display.display_response_naturally(message, prefix="")
-        except ImportError:
-            # Fallback to simple display
-            self.console.insert("end", f"{message}\n")
-            self.console.see("end")
-    
-    def _setup_user_input_waiting(self):
-        """Setup UI to wait for user input"""
-        self.awaiting_user_response = True
-        self.status_label.config(text="💭 Waiting for your response...")
-        
-        # Enable input field and set focus
-        if self.on_user_input_needed:
-            self.on_user_input_needed()
-    
-    def handle_user_input(self, user_input: str):
-        """Handle user input during startup sequence"""
-        if not self.awaiting_user_response or not self.startup_active:
-            return False  # Not handled by startup system
-        
-        # Add user message to console
-        self.console.insert("end", f"\nYou: {user_input}\n", "user")
-        self.console.see("end")
-        
-        # Process response
-        self.awaiting_user_response = False
-        self.status_label.config(text="🤔 Mini thinking...")
-        
-        # Process in background
-        def process_response():
-            try:
-                result = self.startup_manager.process_user_response(user_input)
-                self.console.after(0, lambda: self._handle_startup_step(result))
-            except Exception as e:
-                error_msg = f"Error processing response: {str(e)}"
-                self.console.after(0, lambda: self._handle_startup_error(error_msg))
-        
-        response_thread = threading.Thread(target=process_response, daemon=True)
-        response_thread.start()
-        
-        return True  # Handled by startup system
-    
-    def _handle_startup_complete(self):
-        """Handle completion of startup sequence"""
-        self.startup_active = False
-        self.awaiting_user_response = False
-        
-        self.console.insert("end", "\n" + "=" * 50 + "\n", "success")
-        self.console.insert("end", "✅ Startup complete! Ready to assist you.\n", "success")
-        self.console.insert("end", "=" * 50 + "\n\n", "success")
-        
-        self.status_label.config(text="Ready")
-        
-        # Call completion callback
-        if self.on_startup_complete:
-            self.on_startup_complete()
-    
-    def _handle_startup_error(self, error_message: str):
-        """Handle startup errors"""
-        self.startup_active = False
-        self.awaiting_user_response = False
-        
-        self.console.insert("end", f"\n❌ {error_message}\n", "error")
-        self.console.insert("end", "Falling back to normal chat mode...\n", "dim")
-        
-        self.status_label.config(text="Ready (Startup failed)")
-        
-        # Still call completion callback to restore normal operation
-        if self.on_startup_complete:
-            self.on_startup_complete()
-    
-    def is_startup_active(self) -> bool:
-        """Check if startup sequence is currently active"""
-        return self.startup_active
-    
-    def is_awaiting_user_input(self) -> bool:
-        """Check if startup is waiting for user input"""
-        return self.awaiting_user_response
-    
-    def get_startup_progress(self) -> Dict:
-        """Get current startup progress"""
-        if not self.startup_active:
-            return {"active": False}
-        
-        status = self.startup_manager.get_startup_status()
-        status["active"] = True
-        status["awaiting_input"] = self.awaiting_user_response
-        return status
-    
-    def force_complete_startup(self):
-        """Force complete startup sequence (emergency fallback)"""
-        self.startup_active = False
-        self.awaiting_user_response = False
-        self.status_label.config(text="Ready")
-        
-        if self.on_startup_complete:
-            self.on_startup_complete()
-
-
-# Modified chat core integration
-class StartupEnabledChatHandler:
-    """Enhanced chat handler with autonomous startup capability"""
-    
-    def __init__(self, console, status_label, entry_widget, memory_dir: str):
-        self.console = console
-        self.status_label = status_label
-        self.entry_widget = entry_widget
-        self.memory_dir = memory_dir
-        
-        # Initialize components (will be set by main app)
-        self.memory_manager = None
-        self.api_client = None
-        self.startup_integration = None
-        
-        # State
-        self.normal_chat_enabled = False
-        self.startup_completed = False
-    
-    def initialize_components(self, memory_manager, api_client):
-        """Initialize with memory manager and API client"""
-        self.memory_manager = memory_manager
-        self.api_client = api_client
-        
-        # Initialize startup integration
-        self.startup_integration = StartupIntegrationManager(
-            memory_manager=memory_manager,
-            api_client=api_client,
-            console_widget=self.console,
-            status_label=self.status_label,
-            memory_dir=self.memory_dir
-        )
-    
-    def
+    test_startup_integration()
