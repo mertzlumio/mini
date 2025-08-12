@@ -132,6 +132,47 @@ def apply_theme_to_widgets(console, mode_status_label, entry):
     console.tag_config("accent", foreground=theme["accent"])
     console.tag_config("dim", foreground=theme["dim"])
 
+def initialize_app_with_chat_first(console, mode_status_label, entry, THEME):
+    """Initialize app with Chat as first mode and autonomous startup"""
+    
+    # Update mode display
+    console.insert(tk.END, ">> Mini Player Ready\n", "accent")
+    console.insert(tk.END, f"   Theme: {THEME['name']}\n", "dim")
+    console.insert(tk.END, "   Modes: CHAT → BASH → NOTES → MUSIC\n", "dim")  # Updated order
+    console.insert(tk.END, "   Ctrl+M=modes • Ctrl+T=themes • ↑↓=scroll\n", "dim")
+    
+    try:
+        # Try to initialize chat startup system
+        from handlers import initialize_chat_startup_if_needed
+        
+        if initialize_chat_startup_if_needed(console, mode_status_label, entry):
+            console.insert(tk.END, "\n🤖 Mini AI Assistant with Autonomous Startup\n", "accent")
+            console.insert(tk.END, "   Starting autonomous greeting sequence...\n", "dim")
+            
+            # Trigger startup after a short delay
+            def trigger_startup():
+                try:
+                    from handlers import _chat_startup_handler
+                    if _chat_startup_handler:
+                        _chat_startup_handler.start_mini_session()
+                except Exception as e:
+                    console.insert(tk.END, f"   Startup error: {str(e)}\n", "error")
+                    console.insert(tk.END, "   Falling back to basic chat mode\n", "dim")
+            
+            console.after(1000, trigger_startup)  # 1 second delay
+        else:
+            console.insert(tk.END, "\n💬 Chat mode ready (basic mode)\n", "dim")
+            
+    except ImportError:
+        # Startup system not available yet
+        console.insert(tk.END, "\n💬 Chat mode ready (startup system not installed)\n", "dim")
+        console.insert(tk.END, "   Install startup system for autonomous greeting\n", "dim")
+    except Exception as e:
+        console.insert(tk.END, f"\n⚠️ Chat startup error: {str(e)}\n", "warning")
+        console.insert(tk.END, "   Falling back to basic chat mode\n", "dim")
+    
+    console.see(tk.END)
+
 # Global reference for entry widget
 entry_widget = None
 
@@ -187,9 +228,9 @@ def start_app():
     drag_handle.bind("<Button-1>", start_drag)
     drag_handle.bind("<B1-Motion>", on_drag)
     
-    # Mode + Status combined label
+    # Mode + Status combined label - CHANGED TO SHOW CHAT FIRST
     mode_status_label = tk.Label(
-        header_frame, text="[BASH] Ready", bg=THEME["border"], fg=THEME["text"],
+        header_frame, text="[CHAT] Ready", bg=THEME["border"], fg=THEME["text"],
         font=("Fira Code", 10), anchor="w"
     )
     mode_status_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 8), pady=3)
@@ -279,13 +320,8 @@ def start_app():
     # Initialize modes
     notes_core.load_notes()
     
-    # Welcome message
-    console.insert(tk.END, ">> Mini Player Ready\n", "accent")
-    console.insert(tk.END, f"   Theme: {THEME['name']}\n", "dim")
-    console.insert(tk.END, "   Modes: BASH → CHAT → NOTES → MUSIC\n", "dim")
-    console.insert(tk.END, "   Ctrl+M=modes • Ctrl+T=themes • ↑↓=scroll\n", "dim")
-    notes_core.display_notes(console)
-    console.see(tk.END)
+    # FIXED: Initialize with chat first
+    initialize_app_with_chat_first(console, mode_status_label, entry, THEME)
     
     # Cleanup function for window close
     def on_closing():
