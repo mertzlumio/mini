@@ -17,7 +17,7 @@ MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "mistral-medium")
 MISTRAL_VISION_MODEL = os.getenv("MISTRAL_VISION_MODEL", "pixtral-large-latest")
 
 MISTRAL_URL = os.getenv("MISTRAL_URL", "https://api.mistral.ai/v1/chat/completions")
-NOTES_FILE = os.path.expanduser(os.getenv("NOTES_FILE", "~/notes.txt"))
+NOTES_FILE = os.path.expanduser(os.getenv("NOTES_FILE"))
 
 # Enhanced chat history and memory configuration
 CHAT_HISTORY_DIR = os.path.expanduser(os.getenv("CHAT_HISTORY_DIR"))

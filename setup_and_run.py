@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import platform
+import re
 
 # --- Configuration ---
 VENV_DIR = ".venv"
@@ -51,16 +52,57 @@ def get_python_executable():
                 print("Error: Python (python3 or python) not found in your PATH.")
                 sys.exit(1)
 
+def check_python_version():
+    """Checks if the installed Python version meets the minimum requirement."""
+    print_status("Checking Python version...")
+    if sys.version_info < (3, 7):
+        print(f"Error: Your Python version is {sys.version.split()[0]}.")
+        print("This project requires Python 3.7 or higher.")
+        sys.exit(1)
+    else:
+        print(f"Python version {sys.version.split()[0]} is compatible.")
+
+def create_directories_from_env_example():
+    """Reads .env.example and creates directories specified by _DIR variables."""
+    if not os.path.exists(ENV_EXAMPLE_PATH):
+        print(f"Warning: {ENV_EXAMPLE_PATH} not found. Cannot create directories.")
+        return
+
+    print_status("Creating necessary directories from .env.example")
+    with open(ENV_EXAMPLE_PATH, "r") as f:
+        for line in f:
+            if "_DIR=" in line:
+                match = re.search(r'_DIR="?(.+?)"?$', line)
+                if match:
+                    # Strip any quotes and whitespace
+                    relative_path = match.group(1).strip('"\' \n')
+                    # Split path and get the directory part if it's a file
+                    if '.' in os.path.basename(relative_path):
+                        dir_path = os.path.dirname(relative_path)
+                    else:
+                        dir_path = relative_path
+                    
+                    full_path = os.path.join(APP_DIR, dir_path)
+                    if full_path and not os.path.exists(full_path):
+                        try:
+                            os.makedirs(full_path, exist_ok=True)
+                            print(f"Created directory: {full_path}")
+                        except OSError as e:
+                            print(f"Error creating directory {full_path}: {e}")
+
 # --- Main Setup and Run Logic ---
 
 def setup_and_run():
     print_status("Starting Mini Player Setup and Launch")
 
-    # 1. Check for Python
+    # 1. Check Python Version
+    check_python_version()
+
+    # 2. Check for Python
     base_python = get_python_executable()
     print(f"Detected base Python executable: {base_python}")
 
-    # 2. Virtual Environment Setup
+    # 3. Virtual Environment Setup
     venv_path = os.path.join(APP_DIR, VENV_DIR)
     if not os.path.exists(venv_path):
         print_status(f"Creating virtual environment at {venv_path}")
@@ -78,24 +120,43 @@ def setup_and_run():
         print(f"Error: Virtual environment Python executable not found at {venv_python_executable}")
         sys.exit(1)
 
-    # 3. Install Required Packages from requirements.txt
+    # 4. Install Required Packages from requirements.txt
     if os.path.exists(REQUIREMENTS_FILE):
         print_status("Installing/Updating required Python packages...")
         run_command([venv_python_executable, "-m", "pip", "install", "-r", REQUIREMENTS_FILE], cwd=APP_DIR)
         print("All Python packages installed.")
     else:
         print(f"Warning: {REQUIREMENTS_FILE} not found. Skipping package installation.")
-    # 4. Setting up .env
-    if not os.path.exists(ENV_PATH):
-        if os.path.exists(ENV_EXAMPLE_PATH):
-            print_status("Creating .env from .env.example...")
-            with open(ENV_EXAMPLE_PATH, "r") as src, open(ENV_PATH, "w") as dst:
-                dst.write(src.read())
-            print("Please update your .env file with real API keys and paths.")
-        else:
-            print("No .env.example found. Please create one.")
 
-    # 5. Global Hotkey Setup Guidance (OS-specific)
+    # 5. Setting up .env with Mistral API Key
+    if not os.path.exists(ENV_PATH):
+        print_status("Setting up .env file...")
+        mistral_api_key = input("Please enter your Mistral API Key: ")
+        env_content = f"MISTRAL_API_KEY=\"{mistral_api_key}\"\n"
+        
+        # Check if .env.example exists and copy its contents
+        if os.path.exists(ENV_EXAMPLE_PATH):
+            print("Copying contents from .env.example...")
+            with open(ENV_EXAMPLE_PATH, "r") as src:
+                lines = src.readlines()
+                for line in lines:
+                    if not line.startswith("MISTRAL_API_KEY="):
+                        env_content += line
+        
+        with open(ENV_PATH, "w") as dst:
+            dst.write(env_content)
+        
+        print("Successfully created .env file.")
+        print("Please ensure you configure any necessary paths in the .env file if required by the application.")
+
+        # Create directories after creating .env
+        create_directories_from_env_example()
+    else:
+        print_status(".env file already exists. Skipping creation.")
+        # If .env exists, we should still create the directories for a smooth experience
+        create_directories_from_env_example()
+
+    # 6. Global Hotkey Setup Guidance (OS-specific)
     print_status("Global Hotkey Setup Guidance")
     if platform.system() == "Linux":
         print("On Linux, global hotkeys can be tricky due to display server permissions...")
@@ -105,7 +166,7 @@ def setup_and_run():
     elif platform.system() == "Windows":
         print("On Windows, hotkeys should work out of the box unless another app is using them.")
 
-    # 6. Launch the Application
+    # 7. Launch the Application
     print_status("Launching Mini Player...")
     print("Press Ctrl+Shift+M to toggle window visibility.")
     print("Press Escape to exit.")
