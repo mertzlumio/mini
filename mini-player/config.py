@@ -17,22 +17,23 @@ MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "mistral-medium")
 MISTRAL_VISION_MODEL = os.getenv("MISTRAL_VISION_MODEL", "pixtral-large-latest")
 
 MISTRAL_URL = os.getenv("MISTRAL_URL", "https://api.mistral.ai/v1/chat/completions")
-NOTES_FILE = os.path.expanduser(os.getenv("NOTES_FILE"))
+# Provide safe defaults for file and directory paths
+NOTES_FILE = os.path.expanduser(os.getenv("NOTES_FILE", str(project_root / "files" / "notes.txt")))
 
 # Enhanced chat history and memory configuration
-CHAT_HISTORY_DIR = os.path.expanduser(os.getenv("CHAT_HISTORY_DIR"))
+CHAT_HISTORY_DIR = os.path.expanduser(os.getenv("CHAT_HISTORY_DIR", str(project_root / "files" / "history")))
 CHAT_HISTORY_LENGTH = int(os.getenv("CHAT_HISTORY_LENGTH", "20"))
 
 # Memory system settings
-MEMORY_DIR = os.path.expanduser(os.getenv("MEMORY_DIR"))
+MEMORY_DIR = os.path.expanduser(os.getenv("MEMORY_DIR", str(project_root / "files" / "memory")))
 AUTO_COMPRESS_THRESHOLD = int(os.getenv("AUTO_COMPRESS_THRESHOLD", "40"))
 FACT_IMPORTANCE_THRESHOLD = float(os.getenv("FACT_IMPORTANCE_THRESHOLD", "0.6"))
 
 # Music configuartion folder
-MUSIC_DIR = os.path.expanduser(os.getenv("MUSIC_DIR"))
+MUSIC_DIR = os.path.expanduser(os.getenv("MUSIC_DIR", str(project_root / "files" / "music")))
 
 # Screenshots folder
-SCREENSHOTS_DIR = os.path.expanduser(os.getenv("SCREENSHOTS_DIR"))
+SCREENSHOTS_DIR = os.path.expanduser(os.getenv("SCREENSHOTS_DIR", str(project_root / "screenshots")))
 
 # Vision settings
 SCREENSHOT_QUALITY = int(os.getenv("SCREENSHOT_QUALITY", "75"))
