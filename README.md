@@ -28,7 +28,7 @@ This script automatically:
 Get your API key: [Mistral AI Console](https://console.mistral.ai/)
 ---
 
-## 🎨 Interface Preview
+## Interface Preview
 
 ```
 ┌─────────────────────────────────────┐
