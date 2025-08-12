@@ -9,13 +9,59 @@ from themes import get_current_theme
 history = []
 history_index = -1
 current_dir = os.getcwd()
-modes = ["bash", "chat", "notes", "music"]
+
+# CHANGED: Chat is now first mode
+modes = ["chat", "bash", "notes", "music"]  # Chat moved to first position
 mode_index = 0
 mode = modes[mode_index]
 
+# Startup system globals
+_chat_startup_handler = None
+_startup_initialized = False
+
+def initialize_chat_startup_if_needed(console, mode_status_label, entry):
+    """Initialize chat startup system on first chat mode entry"""
+    global _chat_startup_handler, _startup_initialized
+    
+    if not _startup_initialized:
+        try:
+            # Try to import startup system
+            from modes.chat.startup.integration import StartupEnabledChatHandler
+            from config import MEMORY_DIR
+            
+            # Initialize startup-enabled chat handler
+            _chat_startup_handler = StartupEnabledChatHandler(
+                console=console,
+                status_label=mode_status_label, 
+                entry_widget=entry,
+                memory_dir=MEMORY_DIR
+            )
+            
+            # Initialize with components
+            from modes.chat.core import get_memory_manager
+            from modes.chat.api_client import call_mistral_api
+            
+            memory_manager = get_memory_manager()
+            _chat_startup_handler.initialize_components(memory_manager, call_mistral_api)
+            
+            _startup_initialized = True
+            print("Chat startup system initialized successfully")
+            return True
+            
+        except ImportError as e:
+            print(f"Startup system not available: {e}")
+            console.insert(END, "💬 Chat startup system not installed\n", "dim")
+            return False
+        except Exception as e:
+            print(f"Failed to initialize chat startup: {e}")
+            console.insert(END, f"⚠️ Chat startup error: {str(e)}\n", "warning")
+            return False
+    
+    return _startup_initialized
+
 def toggle_mode(entry, console, mode_status_label, status_label, prompt_label, theme=None):
-    """Enhanced mode switching for integrated header"""
-    global mode_index, mode
+    """Enhanced mode switching for integrated header with chat startup"""
+    global mode_index, mode, _chat_startup_handler
     mode_index = (mode_index + 1) % len(modes)
     mode = modes[mode_index]
     
@@ -31,10 +77,25 @@ def toggle_mode(entry, console, mode_status_label, status_label, prompt_label, t
     
     console.insert(END, f"\n>> Mode: {config['symbol']}\n", "accent")
     
+    # Mode-specific initialization
     if mode == "notes":
         display_notes(console)
     elif mode == "music":
         display_music_status(console)
+    elif mode == "chat":
+        # Initialize chat startup system when entering chat mode
+        if initialize_chat_startup_if_needed(console, mode_status_label, entry):
+            console.insert(END, "🤖 Chat mode with autonomous startup ready\n", "success")
+            
+            # Trigger startup if this is first time entering chat
+            if _chat_startup_handler and not _chat_startup_handler.startup_completed:
+                console.insert(END, "🚀 Initiating Mini autonomous startup...\n", "accent")
+                try:
+                    _chat_startup_handler.start_mini_session()
+                except Exception as e:
+                    console.insert(END, f"Startup error: {str(e)}\n", "error")
+        else:
+            console.insert(END, "💬 Basic chat mode ready\n", "dim")
     
     console.see(END)
     return "break"
@@ -50,8 +111,8 @@ def update_status(mode_status_label, status_text, mode_override=None):
     mode_status_label.config(text=f"{config['symbol']} {status_text}", fg=config['color'])
 
 def on_enter(entry, console, mode_status_label, status_label):
-    """Dispatches command with integrated status updates"""
-    global history, history_index, current_dir, mode
+    """Enhanced dispatcher with autonomous chat startup"""
+    global history, history_index, current_dir, mode, _chat_startup_handler
     
     cmd = entry.get().strip()
     if not cmd:
@@ -97,7 +158,20 @@ def on_enter(entry, console, mode_status_label, status_label):
         update_status(mode_status_label, "Ready")
         
     elif mode == "chat":
-        # Chat handler manages its own status updates
+        # ENHANCED CHAT HANDLING with autonomous startup
+        
+        # Try to use startup-enabled handler first
+        if _chat_startup_handler:
+            try:
+                if _chat_startup_handler.handle_user_input(cmd):
+                    # Handled by startup system - don't add to console or clear entry again
+                    # The startup system handles its own display
+                    console.see(END)
+                    return
+            except Exception as e:
+                console.insert(END, f"Startup handler error: {str(e)}\n", "error")
+        
+        # Fall back to regular chat handler
         chat_core.handle_command(cmd, console, mode_status_label, entry)
             
     elif mode == "notes":

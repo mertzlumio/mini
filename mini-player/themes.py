@@ -1,6 +1,3 @@
-# themes.py - Updated with minimal TUI theme
-
-# Minimal TUI theme - clean, professional
 MINIMAL_THEME = {
     "name": "Minimal TUI",
     "bg": "#1a1a1a",           # Dark background
@@ -14,8 +11,8 @@ MINIMAL_THEME = {
     "border": "#333333",       # Subtle borders/separators
     "dim": "#666666",          # Dimmed text
     "mode_config": {
+        "chat": {"symbol": "[CHAT]", "color": "#00ff88", "prompt": ">"},
         "bash": {"symbol": "[BASH]", "color": "#ffffff", "prompt": ">"},
-        "chat": {"symbol": "[CHAT]", "color": "#00ff88", "prompt": ">"}, 
         "notes": {"symbol": "[NOTE]", "color": "#ffffff", "prompt": ">"},
         "music": {"symbol": "[MUSIC]", "color": "#ffaa00", "prompt": ">"}
     }
@@ -35,8 +32,8 @@ MODERN_THEME = {
     "border": "#30363d",       
     "dim": "#7d8590",          
     "mode_config": {
+        "chat": {"symbol": "[CHAT]", "color": "#58a6ff", "prompt": ">"},
         "bash": {"symbol": "[BASH]", "color": "#f0f6fc", "prompt": ">"},
-        "chat": {"symbol": "[CHAT]", "color": "#58a6ff", "prompt": ">"}, 
         "notes": {"symbol": "[NOTE]", "color": "#3fb950", "prompt": ">"},
         "music": {"symbol": "[MUSIC]", "color": "#d29922", "prompt": ">"}
     }
@@ -56,8 +53,8 @@ ASCII_THEME = {
     "border": "#00ff00",       
     "dim": "#008000",          
     "mode_config": {
+        "chat": {"symbol": "┌─ CHAT ─┐", "color": "#00ffff", "prompt": "├►"},
         "bash": {"symbol": "┌─ BASH ─┐", "color": "#00ff00", "prompt": "├►"},
-        "chat": {"symbol": "┌─ CHAT ─┐", "color": "#00ffff", "prompt": "├►"}, 
         "notes": {"symbol": "┌─ NOTE ─┐", "color": "#00ff00", "prompt": "├►"},
         "music": {"symbol": "┌─ MUSIC ─┐", "color": "#ffff00", "prompt": "├►"}
     }
@@ -77,8 +74,8 @@ AMBER_THEME = {
     "border": "#ffb000",       
     "dim": "#cc8800",          
     "mode_config": {
+        "chat": {"symbol": "[CHAT]", "color": "#ffd700", "prompt": "▶"},
         "bash": {"symbol": "[BASH]", "color": "#ffb000", "prompt": "▶"},
-        "chat": {"symbol": "[CHAT]", "color": "#ffd700", "prompt": "▶"}, 
         "notes": {"symbol": "[NOTE]", "color": "#ffb000", "prompt": "▶"},
         "music": {"symbol": "[MUSIC]", "color": "#ff8c00", "prompt": "▶"}
     }
@@ -98,13 +95,12 @@ MATRIX_THEME = {
     "border": "#00ff41",       
     "dim": "#008020",          
     "mode_config": {
+        "chat": {"symbol": "[CHAT]", "color": "#41ff00", "prompt": ">>"},
         "bash": {"symbol": "[BASH]", "color": "#00ff41", "prompt": ">>"},
-        "chat": {"symbol": "[CHAT]", "color": "#41ff00", "prompt": ">>"}, 
         "notes": {"symbol": "[NOTE]", "color": "#00ff41", "prompt": ">>"},
         "music": {"symbol": "[MUSIC]", "color": "#ffff00", "prompt": ">>"}
     }
 }
-
 # All available themes
 THEMES = {
     "minimal": MINIMAL_THEME,  # New default
