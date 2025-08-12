@@ -23,7 +23,7 @@ This script automatically:
 - Configures global hotkeys
 - Launches Mini-Player
 
-*Get your API key:* [Mistral AI Console](https://console.mistral.ai/)
+Get your API key: [Mistral AI Console](https://console.mistral.ai/)
 ---
 
 ## 🎨 Interface Preview
