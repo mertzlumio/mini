@@ -8,7 +8,7 @@ A compact, always-on-top utility window that packs bash, chat, notes, and music 
 
 ---
 
-## Quick Setup
+## Quick Start
 
 ```bash
 git clone https://github.com/mertzlumio/mini.git
