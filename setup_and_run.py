@@ -166,6 +166,14 @@ def setup_and_run():
     elif platform.system() == "Windows":
         print("On Windows, hotkeys should work out of the box unless another app is using them.")
 
+    try:
+        import tkinter
+    except ImportError:
+        print("Error: Tkinter is not installed.")
+        if platform.system() == "Linux":
+            print("Install it with: sudo apt install python3-tk or with any package manager you use!")
+        sys.exit(1)
+
     # 7. Launch the Application
     print_status("Launching Mini Player...")
     print("Press Ctrl+Shift+M to toggle window visibility.")
