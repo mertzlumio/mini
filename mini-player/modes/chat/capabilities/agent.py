@@ -2,7 +2,7 @@
 import json
 from tkinter import END
 from . import task_manager, web_search, file_reader, memory_tools, visual_assistant
-from ..api_client import call_mistral_api, call_mistral_vision_api, supports_vision
+from ..utils.api_client import call_mistral_api, call_mistral_vision_api, supports_vision
 from . import bash_executor
 
 # Tool registry - maps tool names to actual functions

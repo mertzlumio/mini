@@ -27,6 +27,7 @@ notes.txt
 
 # Folders/files not related to the app
 trash/
+.trash/
 
 
 # Ignore everything in files folder
