@@ -61,28 +61,47 @@ def call_mistral_api(history, min_interval=2.0):
         "Content-Type": "application/json"
     }
 
-    try:
-        print(f"DEBUG: Making text API call at {time.time()}")
-        response = requests.post(MISTRAL_URL, headers=headers, json=data, timeout=30)
-        
-        if response.status_code == 429:
-            print("DEBUG: Hit rate limit (429), waiting longer...")
-            time.sleep(5)  # Wait 5 seconds on rate limit
-            _rate_limiter.wait_if_needed(5.0)  # Reset rate limiter with longer interval
-            
-            # Retry once
-            print("DEBUG: Retrying after rate limit...")
+    max_retries = 3
+    retry_delay = 2  # seconds
+
+    for attempt in range(max_retries):
+        try:
+            print(f"DEBUG: Making text API call (attempt {attempt + 1}) at {time.time()}")
             response = requests.post(MISTRAL_URL, headers=headers, json=data, timeout=30)
+            
+            if response.status_code == 429:
+                print(f"DEBUG: Hit rate limit (429), waiting longer...")
+                time.sleep(5)
+                _rate_limiter.wait_if_needed(5.0)
+                continue  # Retry
+            
+            response.raise_for_status()
+            print(f"DEBUG: Text API call successful")
+            return response.json()['choices'][0]['message']
+            
+        except requests.exceptions.HTTPError as e:
+            if "429" in str(e):
+                print(f"DEBUG: Rate limit hit, retrying...")
+                time.sleep(retry_delay * (attempt + 1))
+                continue
+            print(f"DEBUG: HTTP error: {e}")
+            # For other HTTP errors, we might not want to retry
+            return {"role": "assistant", "content": f"An API error occurred: {e}"}
+
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            print(f"DEBUG: Connection error: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay * (attempt + 1))
+                continue
+            return {"role": "assistant", "content": "I'm having trouble connecting to the server. Please check your internet connection."
+            }
         
-        response.raise_for_status()
-        print(f"DEBUG: Text API call successful")
-        return response.json()['choices'][0]['message']
-        
-    except requests.exceptions.HTTPError as e:
-        if "429" in str(e):
-            print("DEBUG: Rate limit hit even after waiting - need longer intervals")
-            raise requests.exceptions.HTTPError(f"Rate limit exceeded. Try waiting a few minutes. Original error: {e}")
-        raise
+        except requests.exceptions.RequestException as e:
+            print(f"DEBUG: A request exception occurred: {e}")
+            # For other request-related errors, break and return an error
+            return {"role": "assistant", "content": f"An unexpected network error occurred: {e}"}
+
+    return {"role": "assistant", "content": "The request failed after multiple retries. Please try again later."}
 
 def call_mistral_vision_api(history, image_base64, min_interval=3.0):
     """
@@ -129,61 +148,57 @@ def call_mistral_vision_api(history, image_base64, min_interval=3.0):
         "Content-Type": "application/json"
     }
 
-    try:
-        print(f"DEBUG: Making vision API call with {vision_model} at {time.time()}")
-        print(f"DEBUG: Image data size: {len(image_base64)} chars")
-        
-        response = requests.post(MISTRAL_URL, headers=headers, json=data, timeout=45)
-        
-        if response.status_code == 429:
-            print("DEBUG: Vision API hit rate limit (429), waiting longer...")
-            time.sleep(8)  # Wait longer for vision API
-            _rate_limiter.wait_if_needed(8.0)  # Reset with much longer interval
-            
-            # Retry once
-            print("DEBUG: Retrying vision API after rate limit...")
+    max_retries = 3
+    retry_delay = 3  # seconds for vision API
+
+    for attempt in range(max_retries):
+        try:
+            print(f"DEBUG: Making vision API call with {vision_model} (attempt {attempt + 1}) at {time.time()}")
             response = requests.post(MISTRAL_URL, headers=headers, json=data, timeout=45)
-        
-        if response.status_code != 200:
-            print(f"DEBUG: Vision API Status: {response.status_code}")
-            print(f"DEBUG: Vision API Response: {response.text}")
             
-            # Try to parse error details
-            try:
-                error_data = response.json()
-                error_msg = error_data.get('message', response.text)
-            except:
-                error_msg = response.text
-                
-            raise requests.exceptions.HTTPError(f"Vision API failed: {error_msg}")
-        
-        response.raise_for_status()
-        
-        result = response.json()
-        print(f"DEBUG: Vision API call successful")
-        return result['choices'][0]['message']
-        
-    except requests.exceptions.HTTPError as e:
-        print(f"DEBUG: Vision API HTTP error: {e}")
-        if "429" in str(e):
-            fallback_message = {
+            if response.status_code == 429:
+                print("DEBUG: Vision API hit rate limit (429), waiting longer...")
+                time.sleep(8)
+                _rate_limiter.wait_if_needed(8.0)
+                continue # Retry
+            
+            response.raise_for_status()
+            
+            result = response.json()
+            print(f"DEBUG: Vision API call successful")
+            return result['choices'][0]['message']
+            
+        except requests.exceptions.HTTPError as e:
+            print(f"DEBUG: Vision API HTTP error: {e}")
+            if "429" in str(e):
+                time.sleep(retry_delay * (attempt + 1))
+                continue
+            return {
                 "role": "assistant", 
-                "content": f"I captured your screen successfully, but I'm hitting API rate limits. Please wait a minute before asking me to analyze visual content again. The screenshot was saved for later analysis."
+                "content": f"I captured your screen but encountered an API error while analyzing the visual content: {str(e)}."
             }
-        else:
-            fallback_message = {
-                "role": "assistant", 
-                "content": f"I captured your screen but encountered an API error while analyzing the visual content: {str(e)}. The screenshot was saved successfully, but I couldn't process the visual information."
-            }
-        return fallback_message
         
-    except Exception as e:
-        print(f"DEBUG: Vision API unexpected error: {e}")
-        fallback_message = {
-            "role": "assistant", 
-            "content": f"I captured your screen but couldn't analyze the visual content due to an unexpected error: {str(e)}. However, I can still help you with text-based assistance."
-        }
-        return fallback_message
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            print(f"DEBUG: Vision API connection error: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay * (attempt + 1))
+                continue
+            return {
+                "role": "assistant",
+                "content": "I'm having trouble connecting to the server to analyze the screen. Please check your internet connection."
+            }
+
+        except requests.exceptions.RequestException as e:
+            print(f"DEBUG: Vision API request exception: {e}")
+            return {
+                "role": "assistant",
+                "content": f"An unexpected network error occurred while analyzing the screen: {e}"
+            }
+
+    return {
+        "role": "assistant",
+        "content": "The vision request failed after multiple retries. Please try again later."
+    }
 
 def supports_vision():
     """Check if vision is available"""

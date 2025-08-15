@@ -333,22 +333,35 @@ class FileReader:
         
         indent = "  " * current_depth
         
+        # Directories to ignore completely
+        ignore_dirs = {'.git', '.venv', '.trash', '__pycache__', 'node_modules'}
+
         try:
             items = sorted(path.iterdir(), key=lambda x: (x.is_file(), x.name))
             
             for item in items:
+                # Skip ignored directories and hidden files (except for specific ones)
+                if item.name in ignore_dirs:
+                    continue
                 if item.name.startswith('.') and item.name not in ['.env', '.gitignore']:
                     continue
                 
-                if item.is_dir():
-                    if self._is_path_allowed(item):
-                        structure.append(f"{indent}📁 {item.name}/")
-                        if current_depth < max_depth:
-                            self._build_structure_tree(item, structure, max_depth, current_depth + 1)
-                elif self._is_readable_file(item):
-                    structure.append(f"{indent}📄 {item.name}")
-        except PermissionError:
-            structure.append(f"{indent}❌ Permission denied")
+                try:
+                    if item.is_dir():
+                        if self._is_path_allowed(item):
+                            structure.append(f"{indent}📁 {item.name}/")
+                            if current_depth < max_depth:
+                                self._build_structure_tree(item, structure, max_depth, current_depth + 1)
+                    elif self._is_readable_file(item):
+                        structure.append(f"{indent}📄 {item.name}")
+                except (OSError, PermissionError) as e:
+                    # If we can't access a specific item, log it and continue
+                    print(f"DEBUG: Could not access {item.name}: {e}")
+                    structure.append(f"{indent}❌ {item.name} (access denied)")
+
+        except (OSError, PermissionError) as e:
+            print(f"DEBUG: Could not read directory {path}: {e}")
+            structure.append(f"{indent}❌ Error reading directory (access denied)")
 
 
 # Global instance
