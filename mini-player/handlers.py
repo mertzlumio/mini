@@ -12,12 +12,19 @@ current_dir = os.getcwd()
 modes = ["bash", "chat", "notes", "music"]
 mode_index = 0
 mode = modes[mode_index]
+is_chat_first_visit = True # Track first visit to chat mode
+is_ai_replying = False # State lock for chat mode
 
-def toggle_mode(entry, console, mode_status_label, status_label, prompt_label, theme=None):
-    """Enhanced mode switching for integrated header"""
-    global mode_index, mode
+def toggle_mode(consoles, mode_status_label, prompt_label, theme=None):
+    """Switch to the next mode and lift its console to the top."""
+    global mode_index, mode, is_chat_first_visit
     mode_index = (mode_index + 1) % len(modes)
     mode = modes[mode_index]
+    
+    # Get the active console and lift it
+    active_console = consoles.get(mode)
+    if active_console:
+        active_console.lift()
     
     # Get current theme config
     if theme is None:
@@ -25,19 +32,25 @@ def toggle_mode(entry, console, mode_status_label, status_label, prompt_label, t
     
     config = theme["mode_config"][mode]
     
-    # Update integrated mode/status label
+    # Update UI elements for the new mode
     mode_status_label.config(text=f"{config['symbol']} Ready", fg=config['color'])
     prompt_label.config(text=config['prompt'], fg=config['color'])
     
-    console.insert(END, f"\n>> Mode: {config['symbol']}\n", "accent")
-    
+    # Refresh content or show welcome message
     if mode == "notes":
-        display_notes(console)
+        display_notes(active_console)
     elif mode == "music":
-        display_music_status(console)
+        display_music_status(active_console)
+    elif mode == "chat" and is_chat_first_visit:
+        if active_console:
+            active_console.insert(END, ">> Mini here... what do we do today?\n", "accent")
+        is_chat_first_visit = False # Ensure message only appears once per session
     
-    console.see(END)
-    return "break"
+    if active_console:
+        active_console.see(END)
+        
+    return mode # Return the new mode name
+
 
 def update_status(mode_status_label, status_text, mode_override=None):
     """Update the status part of the integrated label"""
@@ -49,12 +62,28 @@ def update_status(mode_status_label, status_text, mode_override=None):
     # Update with mode + status
     mode_status_label.config(text=f"{config['symbol']} {status_text}", fg=config['color'])
 
-def on_enter(entry, console, mode_status_label, status_label):
-    """Dispatches command with integrated status updates"""
-    global history, history_index, current_dir, mode
+def on_ai_reply_complete():
+    """Callback to reset the AI replying state."""
+    global is_ai_replying
+    is_ai_replying = False
+
+def on_enter(entry, get_active_console, mode_status_label):
+    """Dispatches command to the active mode's console."""
+    global history, history_index, current_dir, mode, is_ai_replying
     
+    # For chat mode, check the state lock
+    if mode == "chat" and is_ai_replying:
+        # Optionally provide feedback that the AI is busy
+        # For now, we just ignore the input
+        return
+
     cmd = entry.get().strip()
     if not cmd:
+        return
+
+    console = get_active_console() # Get the currently visible console
+    if not console:
+        print("Error: No active console found.")
         return
 
     # Check for theme commands first
@@ -97,8 +126,9 @@ def on_enter(entry, console, mode_status_label, status_label):
         update_status(mode_status_label, "Ready")
         
     elif mode == "chat":
-        # Chat handler manages its own status updates
-        chat_core.handle_command(cmd, console, mode_status_label, entry)
+        is_ai_replying = True # Lock the state
+        # Pass the callback to the handler
+        chat_core.handle_command(cmd, console, mode_status_label, entry, on_ai_reply_complete)
             
     elif mode == "notes":
         update_status(mode_status_label, "Processing...")
@@ -115,6 +145,7 @@ def on_enter(entry, console, mode_status_label, status_label):
 
 def display_notes(console):
     """Clean notes display - theme-agnostic"""
+    console.delete('1.0', END) # Clear previous content
     notes = notes_core.get_notes()
     if not notes:
         console.insert(END, "  (no tasks yet)\n", "dim")
@@ -127,6 +158,7 @@ def display_notes(console):
 
 def display_music_status(console):
     """Display music player status"""
+    console.delete('1.0', END) # Clear previous content
     try:
         from modes.music.audio_engine import get_audio_engine
         from modes.music.playlist import get_playlist_manager
@@ -144,7 +176,7 @@ def display_music_status(console):
         current_track = playlist_manager.get_current_track()
         playlist_info = playlist_manager.get_playlist_info()
         
-        console.insert(END, f"Music Player Ready\n", "accent")
+        console.insert(END, ">> Music Player Ready\n", "accent")
         
         if current_track:
             console.insert(END, f"Current: {current_track.title}\n", "dim")
@@ -156,7 +188,7 @@ def display_music_status(console):
         else:
             console.insert(END, "Playlist empty - use 'add ~/Music'\n", "dim")
             
-        console.insert(END, "Type 'help' for commands\n", "dim")
+        console.insert(END, "\nType 'help' for commands\n", "dim")
         
     except ImportError as e:
         console.insert(END, "Music Player (dependencies missing)\n", "warning")

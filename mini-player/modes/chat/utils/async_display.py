@@ -205,14 +205,16 @@ class AsyncSmoothResponseDisplay:
             if self.animation_thread and self.animation_thread.is_alive():
                 self.animation_thread.join(timeout=0.5)
     
-    def display_response_naturally(self, response_text, prefix="Mini: "):
-        """Display response with non-blocking animations"""
+    def display_response_naturally(self, response_text, prefix="Mini: ", on_complete_callback=None):
+        """Display response with non-blocking animations and a completion callback."""
         self.stop_animation()
         self.reset_scroll_state()
         
         response_text = response_text.strip()
         if not response_text:
             self._safe_status_update("Ready")
+            if on_complete_callback:
+                self.console.after_idle(on_complete_callback)
             return
         
         # Insert prefix immediately
@@ -223,9 +225,9 @@ class AsyncSmoothResponseDisplay:
         
         # Queue the response display
         if self._has_markdown_formatting(response_text):
-            self.display_queue.put(("markdown", (response_text,)))
+            self.display_queue.put(("markdown", (response_text, on_complete_callback)))
         else:
-            self.display_queue.put(("typewriter", (response_text,)))
+            self.display_queue.put(("typewriter", (response_text, on_complete_callback)))
     
     def _has_markdown_formatting(self, text):
         """Quick check for common markdown patterns"""
@@ -243,7 +245,7 @@ class AsyncSmoothResponseDisplay:
                 return True
         return False
     
-    def _execute_markdown_display(self, text):
+    def _execute_markdown_display(self, text, on_complete_callback=None):
         """Execute markdown display in background"""
         lines = text.split('\n')
         in_code_block = False
@@ -282,7 +284,7 @@ class AsyncSmoothResponseDisplay:
         
         # Finish up
         self._safe_console_insert('\n')
-        self._finish_response()
+        self._finish_response(on_complete_callback)
     
     def _insert_line_with_formatting_async(self, line):
         """Insert line with formatting (async-safe)"""
@@ -341,7 +343,7 @@ class AsyncSmoothResponseDisplay:
                 self._safe_console_insert(remaining)
                 break
     
-    def _execute_typewriter_effect(self, text):
+    def _execute_typewriter_effect(self, text, on_complete_callback=None):
         """Execute typewriter effect in background"""
         chunks = self._split_into_natural_chunks(text)
         
@@ -370,7 +372,7 @@ class AsyncSmoothResponseDisplay:
                 self._safe_console_insert(' ')
                 time.sleep(0.1)
         
-        self._finish_response()
+        self._finish_response(on_complete_callback)
     
     def _split_into_natural_chunks(self, text):
         """Split text into natural reading chunks"""
@@ -416,11 +418,14 @@ class AsyncSmoothResponseDisplay:
             import random
             return base_delay + random.randint(-5, 8)
     
-    def _finish_response(self):
-        """Finish response display"""
+    def _finish_response(self, on_complete_callback=None):
+        """Finish response display and trigger callback."""
         self._safe_console_insert('\n')
         self.stop_animation()
         self._safe_status_update("Ready")
+        if on_complete_callback:
+            # Use after_idle to ensure it runs on the main thread after all other UI events
+            self.console.after_idle(on_complete_callback)
     
     def _should_auto_scroll(self):
         """Check if should auto-scroll"""
@@ -449,13 +454,21 @@ class AsyncSmoothResponseDisplay:
         self.user_has_scrolled = False
         self.auto_scroll_enabled = True
     
-    def display_agent_response_smoothly(self, response, session_history):
-        """Handle agent responses with async animations"""
+    def display_agent_response_smoothly(self, response, session_history, on_complete_callback=None):
+        """Handle agent responses with async animations and a completion callback."""
         tool_calls = response.get("tool_calls")
         
         if not tool_calls:
             content = response.get("content", "I'm not sure how to respond.")
-            self.display_response_naturally(content)
+            # We need to handle the callback here for simple responses
+            # The typewriter/markdown methods will need to be adapted to call it.
+            # For now, let's create a wrapper for the callback.
+            def finish_with_callback():
+                self._finish_response(on_complete_callback)
+
+            # This is a simplification; ideally, the typewriter/markdown methods would accept the callback.
+            # Let's modify them to do so.
+            self.display_response_naturally(content, on_complete_callback=on_complete_callback)
             return
         
         # Show working animation while tools execute
@@ -497,12 +510,14 @@ class AsyncSmoothResponseDisplay:
                             self._safe_console_insert(text, tag)
                             time.sleep(0.05)  # Small delay between outputs
                 
-                self._finish_response()
+                self._finish_response(on_complete_callback)
                 
             except Exception as e:
                 self.stop_animation()
                 self._safe_console_insert(f"\n❌ Error during tool execution: {str(e)}\n", "error")
                 self._safe_status_update("Ready")
+                if on_complete_callback:
+                    self.console.after_idle(on_complete_callback)
         
         # Run agent work in background
         self.executor.submit(execute_agent_work)

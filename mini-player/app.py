@@ -132,11 +132,17 @@ def apply_theme_to_widgets(console, mode_status_label, entry):
     console.tag_config("accent", foreground=theme["accent"])
     console.tag_config("dim", foreground=theme["dim"])
 
-# Global reference for entry widget
+# Global reference for entry widget and consoles
 entry_widget = None
+consoles = {}
+active_mode_name = "bash" # Start with bash
+
+def get_active_console():
+    """Helper to get the currently visible console widget"""
+    return consoles.get(active_mode_name)
 
 def start_app():
-    global entry_widget
+    global entry_widget, consoles, active_mode_name
     
     root = tk.Tk()
     root.overrideredirect(True)
@@ -201,53 +207,56 @@ def start_app():
     # Console area (no scrollbar, clean look)
     console_frame = tk.Frame(main_frame, bg=THEME["console_bg"])
     console_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
-    
-    # Create console with subtle line spacing
-    console = tk.Text(
-        console_frame, height=8, bg=THEME["console_bg"], fg=THEME["text"],
-        insertbackground=THEME["accent"], bd=0, highlightthickness=0,
-        font=("Cascadia Code", 10), wrap=tk.WORD,
-        selectbackground=THEME["accent"], selectforeground=THEME["bg"],
-        padx=6, pady=8, cursor="arrow",
-        # Add subtle line spacing for ruled effect
-        spacing1=2,  # Space before each line
-        spacing3=1   # Space after each line
-    )
-    console.pack(fill=tk.BOTH, expand=True)
-    
-    # Configure text tags
-    console.tag_config("success", foreground=THEME["success"])
-    console.tag_config("warning", foreground=THEME["warning"]) 
-    console.tag_config("error", foreground=THEME["error"])
-    console.tag_config("accent", foreground=THEME["accent"])
-    console.tag_config("dim", foreground=THEME["dim"])
-    
-    # Disable console editing and force focus to entry
-    console.bind("<Key>", lambda e: "break")
-    console.bind("<Button-1>", lambda e: force_focus_to_entry(e, None))
-    
+    console_frame.grid_rowconfigure(0, weight=1)
+    console_frame.grid_columnconfigure(0, weight=1)
+
+    # Create a console for each mode
+    for mode_name in ["bash", "chat", "notes", "music"]:
+        console = tk.Text(
+            console_frame, height=8, bg=THEME["console_bg"], fg=THEME["text"],
+            insertbackground=THEME["accent"], bd=0, highlightthickness=0,
+            font=("Cascadia Code", 10), wrap=tk.WORD,
+            selectbackground=THEME["accent"], selectforeground=THEME["bg"],
+            padx=6, pady=8, cursor="arrow",
+            spacing1=2, spacing3=1
+        )
+        # Configure text tags for each console
+        console.tag_config("success", foreground=THEME["success"])
+        console.tag_config("warning", foreground=THEME["warning"])
+        console.tag_config("error", foreground=THEME["error"])
+        console.tag_config("accent", foreground=THEME["accent"])
+        console.tag_config("dim", foreground=THEME["dim"])
+        
+        # Disable editing and manage focus
+        console.bind("<Key>", lambda e: "break")
+        console.bind("<Button-1>", lambda e, entry=entry_widget: force_focus_to_entry(e, entry))
+
+        consoles[mode_name] = console
+        # Place console in grid, it will be hidden until lifted
+        console.grid(row=0, column=0, sticky="nsew")
+
     # Bottom separator
     separator2 = tk.Frame(main_frame, bg=THEME["border"], height=1)
     separator2.pack(fill=tk.X)
     
     # FULL-WIDTH INPUT AREA - ENHANCED
-    input_frame = tk.Frame(main_frame, bg=THEME["console_bg"], height=35)  # Increased from 32 to 45
+    input_frame = tk.Frame(main_frame, bg=THEME["console_bg"], height=35)
     input_frame.pack(fill=tk.X)
     input_frame.pack_propagate(False)
 
     # Prompt symbol
     prompt_label = tk.Label(
         input_frame, text=">", bg=THEME["console_bg"], fg=THEME["accent"], 
-        font=("JetBrains Mono", 14, "bold")  # Increased from 9 to 12
+        font=("JetBrains Mono", 14, "bold")
     )
-    prompt_label.pack(side=tk.LEFT, padx=(2, 2), pady=1)  # Increased padding
+    prompt_label.pack(side=tk.LEFT, padx=(2, 2), pady=1)
 
     # Entry field (full width) - ENHANCED
     entry = tk.Entry(
         input_frame, bg=THEME["console_bg"], fg=THEME["text"],
         insertbackground=THEME["accent"], bd=0, highlightthickness=0,
-        font=("JetBrains Mono", 12, "bold"), selectbackground=THEME["accent"],  # Increased from 9 to 12
-        selectforeground=THEME["bg"], insertwidth=3  # Increased cursor width
+        font=("JetBrains Mono", 12, "bold"), selectbackground=THEME["accent"],
+        selectforeground=THEME["bg"], insertwidth=3
     )
     entry.pack(fill=tk.X, side=tk.RIGHT, padx=(2, 15), pady=8, ipady=3) 
     
@@ -258,20 +267,27 @@ def start_app():
     entry.focus_set()
     
     # Override console click to focus entry
-    console.bind("<Button-1>", lambda e: force_focus_to_entry(e, entry))
+    for console in consoles.values():
+        console.bind("<Button-1>", lambda e, entry=entry: force_focus_to_entry(e, entry))
     
     # Bind events
-    entry.bind("<Return>", lambda e: on_enter(entry, console, mode_status_label, mode_status_label))
+    entry.bind("<Return>", lambda e: on_enter(entry, get_active_console, mode_status_label))
     entry.bind("<Control-Up>", lambda e: on_up(entry))
     entry.bind("<Control-Down>", lambda e: on_down(entry))
-    entry.bind("<Control-m>", lambda e: toggle_mode(entry, console, mode_status_label, mode_status_label, prompt_label, THEME))
+    
+    # Pass the new active_mode_name variable to toggle_mode
+    def mode_toggle_handler(event):
+        global active_mode_name
+        active_mode_name = toggle_mode(consoles, mode_status_label, prompt_label, THEME)
+        return "break"
+    entry.bind("<Control-m>", mode_toggle_handler)
     
     # Console navigation
-    entry.bind("<Up>", lambda e: scroll_console(console, "up"))
-    entry.bind("<Down>", lambda e: scroll_console(console, "down"))
+    entry.bind("<Up>", lambda e: scroll_console(get_active_console(), "up"))
+    entry.bind("<Down>", lambda e: scroll_console(get_active_console(), "down"))
     
     # Theme switching
-    entry.bind("<Control-t>", lambda e: cycle_theme(console, mode_status_label, entry))
+    entry.bind("<Control-t>", lambda e: cycle_theme(get_active_console(), mode_status_label, entry))
     
     # Force focus on window activation
     root.bind("<FocusIn>", lambda e: entry.focus_set())
@@ -279,13 +295,21 @@ def start_app():
     # Initialize modes
     notes_core.load_notes()
     
-    # Welcome message
-    console.insert(tk.END, ">> Mini Player Ready\n", "accent")
-    console.insert(tk.END, f"   Theme: {THEME['name']}\n", "dim")
-    console.insert(tk.END, "   Modes: BASH → CHAT → NOTES → MUSIC\n", "dim")
-    console.insert(tk.END, "   Ctrl+M=modes • Ctrl+T=themes • ↑↓=scroll\n", "dim")
-    notes_core.display_notes(console)
-    console.see(tk.END)
+    # Welcome message in BASH console
+    consoles["bash"].insert(tk.END, ">> Mini Player Ready\n", "accent")
+    consoles["bash"].insert(tk.END, f"   Theme: {THEME['name']}\n", "dim")
+    consoles["bash"].insert(tk.END, "   Modes: BASH → CHAT → NOTES → MUSIC\n", "dim")
+    consoles["bash"].insert(tk.END, "   Ctrl+M=modes • Ctrl+T=themes • ↑↓=scroll\n", "dim")
+    consoles["bash"].see(tk.END)
+
+    # Initial content for other consoles
+    notes_core.display_notes(consoles["notes"])
+    # A placeholder for music, can be expanded
+    consoles["music"].insert(tk.END, ">> Music Mode\n", "accent")
+    consoles["music"].insert(tk.END, "   Type 'help' for commands\n", "dim")
+    
+    # Lift the initial console to the top
+    consoles[active_mode_name].lift()
     
     # Cleanup function for window close
     def on_closing():
@@ -300,6 +324,3 @@ def start_app():
     if USE_PYNPUT and listener.is_alive():
         listener.stop()
         listener.join()
-
-if __name__ == "__main__":
-    start_app()

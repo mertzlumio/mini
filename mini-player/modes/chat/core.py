@@ -98,23 +98,30 @@ def add_to_session_history(message):
         compressed_count = memory_manager.compress_working_memory(keep_recent=15)
         print(f"Auto-compressed {compressed_count} old messages to long-term memory")
 
-def handle_command(cmd, console, status_label, entry):
-    """Enhanced chat handler with async smooth response display"""
+def handle_command(cmd, console, status_label, entry, on_complete_callback=None):
+    """Enhanced chat handler with async smooth response display and completion callback."""
     memory_manager = get_memory_manager()
     
     # Create async response display handler
     response_display = AsyncSmoothResponseDisplay(console, status_label)
     
-    # Memory-specific commands
+    def command_complete():
+        """Function to call when any command is done."""
+        if on_complete_callback:
+            console.after(0, on_complete_callback)
+
+    # Memory-specific commands (these are synchronous and finish immediately)
     if cmd.lower().startswith(("/search", "/find", "/remember")):
         query = cmd.split(maxsplit=1)[1] if len(cmd.split()) > 1 else ""
         if not query:
             console.insert(END, "Usage: /search <query>\n", "warning")
+            command_complete()
             return
         
         results = memory_manager.search_memory(query)
         console.insert(END, f"{results}\n", "accent")
         status_label.config(text="Ready")
+        command_complete()
         return
     
     if cmd.lower() in ("/memory", "/stats"):
@@ -126,6 +133,7 @@ def handle_command(cmd, console, status_label, entry):
         console.insert(END, f"  User Preferences: {stats['preferences_count']}\n")
         console.insert(END, f"  Session ID: {stats['session_id']}\n", "dim")
         status_label.config(text="Ready")
+        command_complete()
         return
     
     if cmd.lower() == "/compress":
@@ -135,9 +143,10 @@ def handle_command(cmd, console, status_label, entry):
         else:
             console.insert(END, "Not enough messages to compress\n", "dim")
         status_label.config(text="Ready")
+        command_complete()
         return
     
-    # Session management commands
+    # Session management commands (synchronous)
     if cmd.lower() in ("/new", "/reset"):
         if memory_manager.working_memory:
             saved_path = save_current_session()
@@ -147,6 +156,7 @@ def handle_command(cmd, console, status_label, entry):
         count = clear_session_history()
         console.insert(END, f"✨ New chat session started (cleared {count} messages)\n", "accent")
         status_label.config(text="Ready")
+        command_complete()
         return
 
     if cmd.lower() == "/save":
@@ -156,6 +166,7 @@ def handle_command(cmd, console, status_label, entry):
         else:
             console.insert(END, f"❌ Failed to save session\n", "error")
         status_label.config(text="Ready")
+        command_complete()
         return
 
     # Regular chat processing with async animations
@@ -179,24 +190,24 @@ def handle_command(cmd, console, status_label, entry):
             # Add assistant response to memory
             add_to_session_history(response)
             
-            # Schedule UI update on main thread
+            # Schedule UI update on main thread, passing the final callback
             console.after(0, lambda: response_display.display_agent_response_smoothly(
-                response, memory_manager.working_memory
+                response, memory_manager.working_memory, on_complete_callback
             ))
 
         except requests.exceptions.HTTPError as e:
             # Handle API errors on main thread
-            console.after(0, lambda: handle_api_error_async(e, response_display))
+            console.after(0, lambda: handle_api_error_async(e, response_display, on_complete_callback))
         except Exception as e:
             # Handle general errors on main thread  
-            console.after(0, lambda: handle_general_error_async(e, response_display))
+            console.after(0, lambda: handle_general_error_async(e, response_display, on_complete_callback))
 
     # Process API call in background thread
     thread = threading.Thread(target=process_in_background, daemon=True)
     thread.start()
 
 
-def handle_api_error_async(e, response_display):
+def handle_api_error_async(e, response_display, on_complete_callback=None):
     """Handle API errors with async display"""
     response_display.stop_animation()
     
@@ -209,13 +220,18 @@ def handle_api_error_async(e, response_display):
     
     response_display._safe_console_insert(error_text, "error")
     response_display._safe_status_update("Ready")
+    if on_complete_callback:
+        response_display.console.after(0, on_complete_callback)
 
 
-def handle_general_error_async(e, response_display):
+def handle_general_error_async(e, response_display, on_complete_callback=None):
     """Handle general errors with async display"""
     response_display.stop_animation()
     response_display._safe_console_insert(f"❌ Error: {str(e)}\n", "error")
     response_display._safe_status_update("Ready")
+    if on_complete_callback:
+        response_display.console.after(0, on_complete_callback)
+
 
 
 # Register exit handler
