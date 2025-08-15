@@ -1,6 +1,7 @@
 # Updated modes/chat/api_client.py - FIXED Rate Limiting
 import requests
 import time
+import threading  
 from config import MISTRAL_API_KEY, MISTRAL_URL, get_text_model, get_vision_model
 from .prompts.composer import get_system_prompt  # Updated import
 from .prompts.tools import get_mistral_tools      # Updated import

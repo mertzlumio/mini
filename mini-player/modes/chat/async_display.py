@@ -1,102 +1,11 @@
-import os
-import json
-import tkinter as tk
-from tkinter import END
-import requests
-from datetime import datetime
-import atexit
+import asyncio
 import threading
+import queue
 import time
 import re
-import queue
+import tkinter as tk
+from tkinter import END
 from concurrent.futures import ThreadPoolExecutor
-
-from config import CHAT_HISTORY_DIR, CHAT_HISTORY_LENGTH, MEMORY_DIR
-from .api_client import call_mistral_api
-from .capabilities.agent import handle_agent_response
-from .memory.history_sanitizer import sanitize_and_trim_history
-from .memory.memory_manager import MemoryManager
-
-try:
-    from .markdown_formatter import create_markdown_formatter
-    MARKDOWN_AVAILABLE = True
-except ImportError:
-    MARKDOWN_AVAILABLE = False
-    print("Markdown formatter not available - using plain text display")
-
-
-# Global memory manager - this replaces simple session history!
-_memory_manager = None
-
-def get_memory_manager():
-    """Get or create the memory manager instance"""
-    global _memory_manager
-    if _memory_manager is None:
-        memory_dir = MEMORY_DIR
-        _memory_manager = MemoryManager(memory_dir, call_mistral_api)
-    return _memory_manager
-
-def load_history():
-    """Returns enhanced history with long-term memory context"""
-    memory_manager = get_memory_manager()
-    return memory_manager.get_enhanced_history(max_recent=CHAT_HISTORY_LENGTH)
-
-def save_current_session():
-    """Save current session and process for long-term memory"""
-    memory_manager = get_memory_manager()
-    
-    if not memory_manager.working_memory:
-        return None
-    
-    # Process conversation for long-term storage
-    if len(memory_manager.working_memory) > 5:
-        memory_manager.process_conversation_chunk(memory_manager.working_memory)
-    
-    # Save raw session log (as before)
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_filename = f"chat_session_{timestamp}.json"
-    
-    os.makedirs(CHAT_HISTORY_DIR, exist_ok=True)
-    log_path = os.path.join(CHAT_HISTORY_DIR, log_filename)
-    
-    try:
-        # Save sanitized working memory
-        sanitized_history = sanitize_and_trim_history(
-            memory_manager.working_memory, 
-            max_messages=CHAT_HISTORY_LENGTH * 2
-        )
-        
-        with open(log_path, 'w', encoding='utf-8') as f:
-            json.dump(sanitized_history, f, indent=2, ensure_ascii=False)
-        
-        stats = memory_manager.get_stats()
-        print(f"Session saved to {log_path}")
-        print(f"Memory stats: {stats['total_facts']} facts, {stats['total_summaries']} summaries")
-        return log_path
-    except Exception as e:
-        print(f"Error saving session: {e}")
-        return None
-
-def clear_session_history():
-    """Clear current session and process for long-term storage"""
-    memory_manager = get_memory_manager()
-    old_count = len(memory_manager.working_memory)
-    
-    # Process current session before clearing
-    memory_manager.clear_session()
-    
-    return old_count
-
-def add_to_session_history(message):
-    """Add message to working memory"""
-    memory_manager = get_memory_manager()
-    memory_manager.add_to_working_memory(message)
-    
-    # Auto-compress if working memory gets too large
-    if memory_manager.should_compress_memory(threshold=40):
-        compressed_count = memory_manager.compress_working_memory(keep_recent=15)
-        print(f"Auto-compressed {compressed_count} old messages to long-term memory")
-
 
 class AsyncSmoothResponseDisplay:
     """Non-blocking smooth response display with async animations"""
@@ -556,6 +465,9 @@ class AsyncSmoothResponseDisplay:
         # Execute agent work in background thread
         def execute_agent_work():
             try:
+                # Import here to avoid circular imports
+                from ..capabilities.agent import handle_agent_response
+                
                 # Capture console output during tool execution
                 captured_output = []
                 
@@ -602,132 +514,7 @@ class AsyncSmoothResponseDisplay:
         self.executor.shutdown(wait=False)
 
 
-def handle_command(cmd, console, status_label, entry):
-    """Enhanced chat handler with async smooth response display"""
-    memory_manager = get_memory_manager()
-    
-    # Create async response display handler
-    response_display = AsyncSmoothResponseDisplay(console, status_label)
-    
-    # Memory-specific commands
-    if cmd.lower().startswith(("/search", "/find", "/remember")):
-        query = cmd.split(maxsplit=1)[1] if len(cmd.split()) > 1 else ""
-        if not query:
-            console.insert(END, "Usage: /search <query>\n", "warning")
-            return
-        
-        results = memory_manager.search_memory(query)
-        console.insert(END, f"{results}\n", "accent")
-        status_label.config(text="Ready")
-        return
-    
-    if cmd.lower() in ("/memory", "/stats"):
-        stats = memory_manager.get_stats()
-        console.insert(END, f"🧠 Memory Statistics:\n", "accent")
-        console.insert(END, f"  Working Memory: {stats['working_memory_size']} messages\n")
-        console.insert(END, f"  Long-term Facts: {stats['total_facts']}\n")
-        console.insert(END, f"  Conversation Summaries: {stats['total_summaries']}\n") 
-        console.insert(END, f"  User Preferences: {stats['preferences_count']}\n")
-        console.insert(END, f"  Session ID: {stats['session_id']}\n", "dim")
-        status_label.config(text="Ready")
-        return
-    
-    if cmd.lower() == "/compress":
-        if len(memory_manager.working_memory) > 10:
-            compressed = memory_manager.compress_working_memory(keep_recent=5)
-            console.insert(END, f"✨ Compressed {compressed} messages to long-term memory\n", "success")
-        else:
-            console.insert(END, "Not enough messages to compress\n", "dim")
-        status_label.config(text="Ready")
-        return
-    
-    # Session management commands
-    if cmd.lower() in ("/new", "/reset"):
-        if memory_manager.working_memory:
-            saved_path = save_current_session()
-            if saved_path:
-                console.insert(END, f"💾 Previous session saved and processed\n", "dim")
-        
-        count = clear_session_history()
-        console.insert(END, f"✨ New chat session started (cleared {count} messages)\n", "accent")
-        status_label.config(text="Ready")
-        return
-
-    if cmd.lower() == "/save":
-        saved_path = save_current_session()
-        if saved_path:
-            console.insert(END, f"💾 Session saved to {os.path.basename(saved_path)}\n", "success")
-        else:
-            console.insert(END, f"❌ Failed to save session\n", "error")
-        status_label.config(text="Ready")
-        return
-
-    # Regular chat processing with async animations
-    response_display.show_thinking_dots()
-    console.update_idletasks()
-    
-    # Get enhanced history
-    history = load_history()
-    
-    # Add user message
-    user_message = {"role": "user", "content": cmd}
-    history.append(user_message)
-    add_to_session_history(user_message)
-
-    def process_in_background():
-        """Process API call in background thread"""
-        try:
-            # Get response from API
-            response = call_mistral_api(history)
-            
-            # Add assistant response to memory
-            add_to_session_history(response)
-            
-            # Schedule UI update on main thread
-            console.after(0, lambda: response_display.display_agent_response_smoothly(
-                response, memory_manager.working_memory
-            ))
-
-        except requests.exceptions.HTTPError as e:
-            # Handle API errors on main thread
-            console.after(0, lambda: handle_api_error_async(e, response_display))
-        except Exception as e:
-            # Handle general errors on main thread  
-            console.after(0, lambda: handle_general_error_async(e, response_display))
-
-    # Process API call in background thread
-    thread = threading.Thread(target=process_in_background, daemon=True)
-    thread.start()
-
-
-def handle_api_error_async(e, response_display):
-    """Handle API errors with async display"""
-    response_display.stop_animation()
-    
-    if hasattr(e, 'response') and e.response:
-        error_text = f"❌ API Error {e.response.status_code}\n"
-        error_details = e.response.text[:200] + "..." if len(e.response.text) > 200 else e.response.text
-        error_text += f"Details: {error_details}\n"
-    else:
-        error_text = f"❌ API Error: {str(e)}\n"
-    
-    response_display._safe_console_insert(error_text, "error")
-    response_display._safe_status_update("Ready")
-
-
-def handle_general_error_async(e, response_display):
-    """Handle general errors with async display"""
-    response_display.stop_animation()
-    response_display._safe_console_insert(f"❌ Error: {str(e)}\n", "error")
-    response_display._safe_status_update("Ready")
-
-
-# Register exit handler
-def _exit_handler():
-    """Save session and process for long-term memory on exit"""
-    memory_manager = get_memory_manager()
-    if memory_manager.working_memory:
-        save_current_session()
-        print("Chat session saved and processed for long-term memory")
-
-atexit.register(_exit_handler)
+# Enhanced integration function for core.py
+def create_async_response_display(console, status_label):
+    """Factory function to create async response display"""
+    return AsyncSmoothResponseDisplay(console, status_label)
