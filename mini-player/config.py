@@ -33,7 +33,7 @@ FACT_IMPORTANCE_THRESHOLD = float(os.getenv("FACT_IMPORTANCE_THRESHOLD", "0.6"))
 MUSIC_DIR = os.path.expanduser(os.getenv("MUSIC_DIR", str(project_root / "files" / "music")))
 
 # Screenshots folder
-SCREENSHOTS_DIR = os.path.expanduser(os.getenv("SCREENSHOTS_DIR", str(project_root / "screenshots")))
+SCREENSHOTS_DIR = os.path.expanduser(os.getenv("SCREENSHOTS_DIR", str(project_root / "files" / "screenshots")))
 
 # Vision settings
 SCREENSHOT_QUALITY = int(os.getenv("SCREENSHOT_QUALITY", "75"))
