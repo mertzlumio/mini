@@ -98,7 +98,7 @@ class DuckDuckGoSearch:
     def _summarize_with_mistral(self, content, query):
         """Use Mistral to summarize the content based on the user's query"""
         try:
-            from ..utils.api_client import call_mistral_api
+            from ..api_client import call_mistral_api
             
             summary_prompt = [
                 {
