@@ -182,58 +182,24 @@ def handle_command(cmd, console, status_label, entry, on_complete_callback=None)
     add_to_session_history(user_message)
 
     def process_in_background():
-        """Process API call in background, with a robust loop for chained tool use."""
+        """Process API call in background thread"""
         try:
-            max_loops = 10
-            for loop_count in range(max_loops):
-                # Get the latest history from the memory manager
-                current_history = load_history()
-                
-                # 1. Call the API with the current history
-                response = call_mistral_api(current_history)
-                
-                # 2. Add the assistant's response to our history.
-                # This is crucial for maintaining the correct conversation structure.
-                add_to_session_history(response)
-
-                # 3. Check for tool calls
-                if not response.get("tool_calls"):
-                    # No tools called, this is the end of the chain.
-                    # Display the final content and break the loop.
-                    console.after(0, lambda: response_display.display_response_naturally(
-                        response.get("content", "Task complete."), on_complete_callback=on_complete_callback
-                    ))
-                    return
-
-                # --- Tools were called, continue the loop ---
-                console.after(0, lambda: response_display.show_working("Mini using tools"))
-
-                # 4. Execute the tools. The new agent handler is a clean function
-                # that only executes tools and returns the results.
-                tool_results = handle_agent_response(response, response_display.console)
-
-                # 5. Add all tool results to the session history.
-                # This completes the valid sequence: [assistant_call, tool_result_1, tool_result_2, ...]
-                for result in tool_results:
-                    add_to_session_history(result)
-                
-                # 6. (Optional but recommended) Inject a client-side prompt to guide the next step.
-                instruction = {
-                    "role": "system",
-                    "content": "Review the results of the tool(s) you just used. Decide the next step. If the goal is complete, provide a final answer to the user. Otherwise, call the next tool required to continue the task."
-                }
-                add_to_session_history(instruction)
-
-            # If the loop finishes due to reaching max_loops
-            console.after(0, lambda: response_display._safe_console_insert(
-                "⚠️ Agent reached maximum toolchain length. Breaking loop.\n", "warning"
+            # Get response from API
+            response = call_mistral_api(history)
+            
+            # Add assistant response to memory
+            add_to_session_history(response)
+            
+            # Schedule UI update on main thread, passing the final callback
+            console.after(0, lambda: response_display.display_agent_response_smoothly(
+                response, memory_manager.working_memory, on_complete_callback
             ))
-            if on_complete_callback:
-                console.after(0, on_complete_callback)
 
         except requests.exceptions.HTTPError as e:
+            # Handle API errors on main thread
             console.after(0, lambda: handle_api_error_async(e, response_display, on_complete_callback))
         except Exception as e:
+            # Handle general errors on main thread  
             console.after(0, lambda: handle_general_error_async(e, response_display, on_complete_callback))
 
     # Process API call in background thread

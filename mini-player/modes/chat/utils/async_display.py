@@ -455,43 +455,72 @@ class AsyncSmoothResponseDisplay:
         self.auto_scroll_enabled = True
     
     def display_agent_response_smoothly(self, response, session_history, on_complete_callback=None):
-        """
-        Handle agent responses. Returns True if tools were used, False otherwise.
-        This is now a semi-blocking call for tool execution to support loops.
-        """
+        """Handle agent responses with async animations and a completion callback."""
         tool_calls = response.get("tool_calls")
         
         if not tool_calls:
-            # No tools, just display the content and signal completion.
             content = response.get("content", "I'm not sure how to respond.")
+            # We need to handle the callback here for simple responses
+            # The typewriter/markdown methods will need to be adapted to call it.
+            # For now, let's create a wrapper for the callback.
+            def finish_with_callback():
+                self._finish_response(on_complete_callback)
+
+            # This is a simplification; ideally, the typewriter/markdown methods would accept the callback.
+            # Let's modify them to do so.
             self.display_response_naturally(content, on_complete_callback=on_complete_callback)
-            return False  # No tools were used
-
-        # --- Tool Execution Path ---
-        self.show_working("Mini using tools")
+            return
         
-        try:
-            # Import here to avoid circular imports
-            from ..capabilities.agent import handle_agent_response
-            
-            # Directly execute the agent's tool handling. This is now synchronous
-            # within the background thread of core.py.
-            handle_agent_response(response, session_history, self.console, self.status_label)
-            
-            # The agent response handler will print tool outputs.
-            # We stop the animation here, ready for the next loop iteration or final response.
-            self.stop_animation()
-            self._safe_status_update("Ready for next step...")
-            
-            return True  # Signal that tools were used
-
-        except Exception as e:
-            self.stop_animation()
-            self._safe_console_insert(f"\n❌ Error during tool execution: {str(e)}\n", "error")
-            self._safe_status_update("Ready")
-            if on_complete_callback:
-                self.console.after_idle(on_complete_callback)
-            return False # Tool execution failed, break the loop.
+        # Show working animation while tools execute
+        self.show_working("Mini using tools")
+        self._safe_console_insert("🛠️ Mini is working with tools...\n", "accent")
+        
+        # Execute agent work in background thread
+        def execute_agent_work():
+            try:
+                # Import here to avoid circular imports
+                from ..capabilities.agent import handle_agent_response
+                
+                # Capture console output during tool execution
+                captured_output = []
+                
+                # Temporarily override console insert to capture output
+                original_insert = self.console.insert
+                def capturing_insert(pos, text, tag=None):
+                    if pos == tk.END:
+                        captured_output.append((text, tag))
+                    else:
+                        original_insert(pos, text, tag)
+                
+                self.console.insert = capturing_insert
+                
+                try:
+                    handle_agent_response(response, session_history, self.console, self.status_label)
+                finally:
+                    self.console.insert = original_insert
+                
+                # Display captured output with typewriter effect
+                if captured_output:
+                    time.sleep(0.5)  # Brief pause
+                    self.stop_animation()
+                    self.show_typing("Mini finalizing")
+                    
+                    for text, tag in captured_output:
+                        if text.strip():
+                            self._safe_console_insert(text, tag)
+                            time.sleep(0.05)  # Small delay between outputs
+                
+                self._finish_response(on_complete_callback)
+                
+            except Exception as e:
+                self.stop_animation()
+                self._safe_console_insert(f"\n❌ Error during tool execution: {str(e)}\n", "error")
+                self._safe_status_update("Ready")
+                if on_complete_callback:
+                    self.console.after_idle(on_complete_callback)
+        
+        # Run agent work in background
+        self.executor.submit(execute_agent_work)
     
     def shutdown(self):
         """Clean shutdown of async components"""
