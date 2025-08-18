@@ -1,5 +1,5 @@
 import tkinter as tk
-from utils import place_bottom_right
+from utils import place_bottom_right, toggle_window_size
 from handlers import on_enter, on_up, on_down, toggle_mode
 from modes.notes import core as notes_core
 from themes import get_current_theme, switch_theme, get_available_themes, get_theme_info, current_theme
@@ -20,8 +20,9 @@ except ImportError:
         print("Error: Neither pynput nor keyboard library found. Please install one.")
         exit()
 
-# Global state for window visibility and dragging
+# Global state for window visibility, dragging, and sizing
 is_visible = True
+is_expanded = False  # Track window size state
 drag_data = {"x": 0, "y": 0}
 
 def toggle_window(root):
@@ -34,6 +35,21 @@ def toggle_window(root):
         root.lift()  # Bring to front
         entry_widget.focus_set()  # Always focus on input
     is_visible = not is_visible
+
+def toggle_size(root):
+    """Toggle between default and expanded window size"""
+    global is_expanded
+    is_expanded = toggle_window_size(root, is_expanded)
+    
+    # Update console height for better experience
+    if is_expanded:
+        # Increase console height for expanded mode
+        for console in consoles.values():
+            console.config(height=20)  # More lines for expanded mode
+    else:
+        # Reset to default height
+        for console in consoles.values():
+            console.config(height=8)   # Original height for compact mode
 
 def start_drag(event):
     """Start dragging the window"""
@@ -59,6 +75,10 @@ def on_press(key, root, listener_ref):
         if hasattr(key, 'char') and key.char == 'm' and \
            key.ctrl and key.shift:
             root.after(0, lambda: toggle_window(root))
+        # Check for Ctrl+Shift+S for toggling size
+        elif hasattr(key, 'char') and key.char == 's' and \
+             key.ctrl and key.shift:
+            root.after(0, lambda: toggle_size(root))
         # Check for Escape key to exit (global)
         elif key == pynput_keyboard.Key.esc:
             root.after(0, root.destroy)
@@ -158,11 +178,17 @@ def start_app():
     if USE_PYNPUT:
         listener = pynput_keyboard.Listener(on_press=lambda k: on_press(k, root, listener))
         listener.start()
-        print("Using pynput for global hotkeys (Ctrl+Shift+M to toggle, Escape to exit).")
+        print("Using pynput for global hotkeys:")
+        print("  Ctrl+Shift+M to toggle visibility")
+        print("  Ctrl+Shift+S to toggle size")  
+        print("  Escape to exit")
     else:
         try:
             simple_keyboard.add_hotkey('ctrl+shift+m', lambda: toggle_window(root))
-            print("Using 'keyboard' library for global hotkeys (Ctrl+Shift+M to toggle).")
+            simple_keyboard.add_hotkey('ctrl+shift+s', lambda: toggle_size(root))
+            print("Using 'keyboard' library for global hotkeys:")
+            print("  Ctrl+Shift+M to toggle visibility")
+            print("  Ctrl+Shift+S to toggle size")
         except Exception as e:
             print(f"Warning: Could not set global hotkey: {e}")
         
@@ -177,7 +203,7 @@ def start_app():
     main_frame = tk.Frame(root, bg=THEME["bg"])
     main_frame.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
     
-    # INTEGRATED HEADER: Drag handle + Mode + Status in one line
+    # INTEGRATED HEADER: Drag handle + Mode + Status + Size toggle in one line
     header_frame = tk.Frame(main_frame, bg=THEME["border"], height=26)
     header_frame.pack(fill=tk.X)
     header_frame.pack_propagate(False)
@@ -198,7 +224,15 @@ def start_app():
         header_frame, text="[BASH] Ready", bg=THEME["border"], fg=THEME["text"],
         font=("Fira Code", 10), anchor="w"
     )
-    mode_status_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 8), pady=3)
+    mode_status_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 4), pady=3)
+    
+    # Size toggle button (compact indicator)
+    size_toggle_btn = tk.Label(
+        header_frame, text="⇱", bg=THEME["border"], fg=THEME["dim"],
+        font=("Fira Code", 10), cursor="hand2", width=2
+    )
+    size_toggle_btn.pack(side=tk.RIGHT, pady=3, padx=(0, 4))
+    size_toggle_btn.bind("<Button-1>", lambda e: toggle_size(root))
     
     # Separator line
     separator = tk.Frame(main_frame, bg=THEME["border"], height=1)
@@ -289,6 +323,9 @@ def start_app():
     # Theme switching
     entry.bind("<Control-t>", lambda e: cycle_theme(get_active_console(), mode_status_label, entry))
     
+    # Window size toggle
+    entry.bind("<Control-s>", lambda e: toggle_size(root))
+    
     # Force focus on window activation
     root.bind("<FocusIn>", lambda e: entry.focus_set())
     
@@ -299,7 +336,8 @@ def start_app():
     consoles["bash"].insert(tk.END, ">> Mini Player Ready\n", "accent")
     consoles["bash"].insert(tk.END, f"   Theme: {THEME['name']}\n", "dim")
     consoles["bash"].insert(tk.END, "   Modes: BASH → CHAT → NOTES → MUSIC\n", "dim")
-    consoles["bash"].insert(tk.END, "   Ctrl+M=modes • Ctrl+T=themes • ↑↓=scroll\n", "dim")
+    consoles["bash"].insert(tk.END, "   Ctrl+M=modes • Ctrl+T=themes • Ctrl+S=size • ↑↓=scroll\n", "dim")
+    consoles["bash"].insert(tk.END, "   Global: Ctrl+Shift+M=toggle • Ctrl+Shift+S=resize\n", "dim")
     consoles["bash"].see(tk.END)
 
     # Initial content for other consoles
