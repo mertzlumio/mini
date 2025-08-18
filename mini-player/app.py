@@ -292,7 +292,7 @@ def start_app():
         font=("JetBrains Mono", 12, "bold"), selectbackground=THEME["accent"],
         selectforeground=THEME["bg"], insertwidth=3
     )
-    entry.pack(fill=tk.X, side=tk.RIGHT, padx=(2, 15), pady=8, ipady=3) 
+    entry.pack(fill=tk.X, expand=True, padx=(2, 15), pady=8, ipady=3)
     
     # Store global reference
     entry_widget = entry
