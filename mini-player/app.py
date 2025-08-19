@@ -41,15 +41,26 @@ def toggle_size(root):
     global is_expanded
     is_expanded = toggle_window_size(root, is_expanded)
     
-    # Update console height for better experience
+    # Update the size toggle icon based on current state
     if is_expanded:
+        # Expanded mode - icon points southeast (down-right)
+        size_toggle_btn.config(text="⇲")  # Southeast arrow
         # Increase console height for expanded mode
         for console in consoles.values():
             console.config(height=20)  # More lines for expanded mode
+        # Adjust input field for expanded mode
+        if entry_widget:
+            entry_widget.config(font=("JetBrains Mono", 14, "bold"))  # Larger font
     else:
+        # Compact mode - icon points northwest (up-left) 
+        size_toggle_btn.config(text="⇱")  # Northwest arrow
         # Reset to default height
         for console in consoles.values():
             console.config(height=8)   # Original height for compact mode
+        # Reset input field to default
+        if entry_widget:
+            entry_widget.config(font=("JetBrains Mono", 12, "bold"))  # Default font
+
 
 def start_drag(event):
     """Start dragging the window"""
@@ -162,7 +173,7 @@ def get_active_console():
     return consoles.get(active_mode_name)
 
 def start_app():
-    global entry_widget, consoles, active_mode_name
+    global entry_widget, consoles, active_mode_name, size_toggle_btn
     
     root = tk.Tk()
     root.overrideredirect(True)

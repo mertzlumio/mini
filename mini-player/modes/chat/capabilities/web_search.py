@@ -1,4 +1,4 @@
-# Enhanced web_search.py with content extraction and summarization
+# Enhanced web_search.py with SINGLE summarization call to fix connection issues
 import requests
 import re
 from urllib.parse import quote_plus, urljoin
@@ -41,90 +41,111 @@ class DuckDuckGoSearch:
             print(f"DEBUG: Fetching content from {url}")
             self._rate_limit(0.5)  # Be respectful
             
-            response = self.session.get(url, timeout=10)
-            response.raise_for_status()
-            
-            html = response.text
-            
-            # Try to extract main content using common patterns
-            content_patterns = [
-                # Article tags
-                r'<article[^>]*>(.*?)</article>',
-                # Main content areas
-                r'<main[^>]*>(.*?)</main>',
-                # Content divs
-                r'<div[^>]*class="[^"]*content[^"]*"[^>]*>(.*?)</div>',
-                r'<div[^>]*class="[^"]*post[^"]*"[^>]*>(.*?)</div>',
-                r'<div[^>]*class="[^"]*entry[^"]*"[^>]*>(.*?)</div>',
-                # Paragraph collections
-                r'<div[^>]*>((?:<p[^>]*>.*?</p>\s*){3,})</div>',
-            ]
-            
-            extracted_content = ""
-            
-            for pattern in content_patterns:
-                matches = re.finditer(pattern, html, re.DOTALL | re.IGNORECASE)
-                for match in matches:
-                    content = self._clean_text(match.group(1))
-                    if len(content) > len(extracted_content) and len(content) > 200:
-                        extracted_content = content
+            # Use a fresh session for each content request to avoid connection pool issues
+            with requests.Session() as content_session:
+                content_session.headers.update(self.session.headers)
+                response = content_session.get(url, timeout=10)
+                response.raise_for_status()
+                
+                html = response.text
+                
+                # Try to extract main content using common patterns
+                content_patterns = [
+                    # Article tags
+                    r'<article[^>]*>(.*?)</article>',
+                    # Main content areas
+                    r'<main[^>]*>(.*?)</main>',
+                    # Content divs
+                    r'<div[^>]*class="[^"]*content[^"]*"[^>]*>(.*?)</div>',
+                    r'<div[^>]*class="[^"]*post[^"]*"[^>]*>(.*?)</div>',
+                    r'<div[^>]*class="[^"]*entry[^"]*"[^>]*>(.*?)</div>',
+                    # Paragraph collections
+                    r'<div[^>]*>((?:<p[^>]*>.*?</p>\s*){3,})</div>',
+                ]
+                
+                extracted_content = ""
+                
+                for pattern in content_patterns:
+                    matches = re.finditer(pattern, html, re.DOTALL | re.IGNORECASE)
+                    for match in matches:
+                        content = self._clean_text(match.group(1))
+                        if len(content) > len(extracted_content) and len(content) > 200:
+                            extracted_content = content
+                            break
+                    if extracted_content:
                         break
-                if extracted_content:
-                    break
-            
-            # Fallback: extract all paragraph text
-            if not extracted_content:
-                paragraphs = re.findall(r'<p[^>]*>(.*?)</p>', html, re.DOTALL | re.IGNORECASE)
-                content_parts = []
-                for p in paragraphs:
-                    clean_p = self._clean_text(p)
-                    if len(clean_p) > 50:  # Only meaningful paragraphs
-                        content_parts.append(clean_p)
-                    if len('\n'.join(content_parts)) > max_content_length:
-                        break
-                extracted_content = '\n\n'.join(content_parts)
-            
-            # Limit content length
-            if len(extracted_content) > max_content_length:
-                extracted_content = extracted_content[:max_content_length] + "..."
-            
-            print(f"DEBUG: Extracted {len(extracted_content)} characters from {url}")
-            return extracted_content
-            
+                
+                # Fallback: extract all paragraph text
+                if not extracted_content:
+                    paragraphs = re.findall(r'<p[^>]*>(.*?)</p>', html, re.DOTALL | re.IGNORECASE)
+                    content_parts = []
+                    for p in paragraphs:
+                        clean_p = self._clean_text(p)
+                        if len(clean_p) > 50:  # Only meaningful paragraphs
+                            content_parts.append(clean_p)
+                        if len('\n'.join(content_parts)) > max_content_length:
+                            break
+                    extracted_content = '\n\n'.join(content_parts)
+                
+                # Limit content length
+                if len(extracted_content) > max_content_length:
+                    extracted_content = extracted_content[:max_content_length] + "..."
+                
+                print(f"DEBUG: Extracted {len(extracted_content)} characters from {url}")
+                return extracted_content
+                
         except Exception as e:
             print(f"DEBUG: Failed to extract content from {url}: {e}")
             return ""
     
-    def _summarize_with_mistral(self, content, query):
-        """Use Mistral to summarize the content based on the user's query"""
+    def _summarize_all_content_with_mistral(self, content_sources, query):
+        """
+        FIXED: Use Mistral to summarize ALL content in a SINGLE API call
+        This eliminates multiple API calls that cause connection issues
+        """
         try:
             from ..utils.api_client import call_mistral_api
             
+            # Combine all content sources into one text block
+            combined_content = []
+            for i, (title, content, url) in enumerate(content_sources, 1):
+                combined_content.append(f"=== SOURCE {i}: {title} ===")
+                combined_content.append(f"URL: {url}")
+                combined_content.append(f"CONTENT: {content}")
+                combined_content.append("=" * 50)
+            
+            full_content = "\n\n".join(combined_content)
+            
+            # Single API call to analyze all content at once
             summary_prompt = [
                 {
                     "role": "system",
-                    "content": f"You are helping to summarize web content. The user searched for '{query}'. Extract and summarize the most relevant information from the content that answers their query. Be concise but informative. Focus on what the user was looking for."
+                    "content": f"You are helping to analyze web search results. The user searched for '{query}'. I've gathered content from multiple sources. Please provide a comprehensive summary that:\n1. Answers the user's query directly\n2. Synthesizes information from all sources\n3. Highlights key findings and relevant details\n4. Organizes the information clearly\n5. Cites which sources contain which information"
                 },
                 {
                     "role": "user",
-                    "content": f"Content to summarize:\n\n{content}\n\nUser's query: {query}\n\nPlease provide a focused summary that answers what the user was searching for."
+                    "content": f"Please analyze and summarize these search results for the query '{query}':\n\n{full_content}\n\nProvide a comprehensive summary that answers what the user was looking for, drawing from all the sources."
                 }
             ]
             
+            print(f"DEBUG: Making SINGLE summarization call with {len(content_sources)} sources")
             response = call_mistral_api(summary_prompt)
             summary = response.get('content', '')
             
-            print(f"DEBUG: Generated summary of {len(summary)} characters")
+            print(f"DEBUG: Generated comprehensive summary of {len(summary)} characters")
             return summary
             
         except Exception as e:
             print(f"DEBUG: Failed to generate summary: {e}")
-            return content[:500] + "..." if len(content) > 500 else content
+            # Fallback: create a simple combined summary
+            fallback_parts = []
+            for title, content, url in content_sources:
+                snippet = content[:200] + "..." if len(content) > 200 else content
+                fallback_parts.append(f"**{title}**: {snippet}")
+            return "\n\n".join(fallback_parts)
     
     def _extract_search_results(self, html_content):
         """Extract search results from DuckDuckGo HTML (existing method)"""
-        # ... your existing extraction code here ...
-        # (I'll keep it as-is since it's working)
         results = []
         
         result_patterns = [
@@ -203,7 +224,7 @@ class DuckDuckGoSearch:
     
     def search_with_content(self, query, max_results=2, extract_content=True):
         """
-        Enhanced search that extracts and summarizes actual page content
+        FIXED: Enhanced search with SINGLE summarization call
         
         Args:
             query (str): Search query
@@ -236,23 +257,38 @@ class DuckDuckGoSearch:
                     formatted_results.append(f"   🔗 {result['url']}\n")
                 return "\n".join(formatted_results)
             
-            # Enhanced mode: extract and summarize content
-            formatted_results = [f"🔍 **{query}** - Enhanced Search Results:\n"]
+            # FIXED: Enhanced mode with SINGLE summarization call
+            print(f"DEBUG: Extracting content from {max_results} sources...")
             
+            # Step 1: Collect all content from all sources (no API calls yet)
+            content_sources = []
             for i, result in enumerate(results[:max_results], 1):
-                formatted_results.append(f"## {i}. {result['title']}")
+                print(f"DEBUG: Processing source {i}/{max_results}: {result['title']}")
                 
                 # Extract page content
                 content = self._extract_page_content(result['url'])
                 
                 if content:
-                    # Summarize with Mistral
-                    summary = self._summarize_with_mistral(content, query)
-                    formatted_results.append(f"**Summary:** {summary}")
+                    content_sources.append((result['title'], content, result['url']))
                 elif result['snippet']:
-                    formatted_results.append(f"**Description:** {result['snippet']}")
-                
-                formatted_results.append(f"🔗 Source: {result['url']}\n")
+                    # Use snippet as fallback
+                    content_sources.append((result['title'], result['snippet'], result['url']))
+            
+            if not content_sources:
+                return f"🔍 Search completed for '{query}', but no content could be extracted from the results."
+            
+            # Step 2: Make SINGLE API call to summarize all content
+            print(f"DEBUG: Making single summarization call for {len(content_sources)} sources")
+            comprehensive_summary = self._summarize_all_content_with_mistral(content_sources, query)
+            
+            # Step 3: Format the final response
+            formatted_results = [f"🔍 **{query}** - Comprehensive Search Analysis:\n"]
+            formatted_results.append(comprehensive_summary)
+            formatted_results.append(f"\n📚 **Sources analyzed:**")
+            
+            for i, (title, _, url) in enumerate(content_sources, 1):
+                formatted_results.append(f"{i}. {title}")
+                formatted_results.append(f"   🔗 {url}")
             
             return "\n".join(formatted_results)
             
@@ -270,7 +306,7 @@ def get_search_engine():
 
 def search_web(query: str, max_results: int = 2, with_content: bool = True):
     """
-    Enhanced web search with content extraction and summarization
+    FIXED: Enhanced web search with SINGLE summarization call
     
     Args:
         query (str): Search query

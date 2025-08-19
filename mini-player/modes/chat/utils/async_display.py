@@ -8,7 +8,7 @@ from tkinter import END
 from concurrent.futures import ThreadPoolExecutor
 
 class AsyncSmoothResponseDisplay:
-    """Non-blocking smooth response display with async animations"""
+    """Thread-safe smooth response display with proper tkinter threading"""
     
     def __init__(self, console, status_label):
         self.console = console
@@ -16,11 +16,13 @@ class AsyncSmoothResponseDisplay:
         
         # Animation control
         self.animation_active = False
-        self.animation_thread = None
         self.stop_animation_event = threading.Event()
         
+        # Thread-safe communication queues
+        self.gui_queue = queue.Queue()
+        self.animation_queue = queue.Queue()
+        
         # Response display control
-        self.display_queue = queue.Queue()
         self.display_active = False
         
         # Scroll state
@@ -32,7 +34,7 @@ class AsyncSmoothResponseDisplay:
         
         self._setup_scroll_detection()
         self._setup_markdown_tags()
-        self._start_display_worker()
+        self._start_gui_queue_processor()
     
     def _setup_markdown_tags(self):
         """Setup basic markdown text tags"""
@@ -77,56 +79,108 @@ class AsyncSmoothResponseDisplay:
         self.console.tag_config("accent", foreground=theme["accent"])
         self.console.tag_config("dim", foreground=theme["dim"])
     
-    def _start_display_worker(self):
-        """Start the background display worker thread"""
-        def display_worker():
-            while True:
-                try:
-                    task = self.display_queue.get(timeout=1.0)
-                    if task is None:  # Shutdown signal
+    def _start_gui_queue_processor(self):
+        """Start processing GUI updates from the queue on the main thread"""
+        def process_gui_queue():
+            try:
+                # Process multiple items at once for better performance
+                items_processed = 0
+                while items_processed < 10:  # Limit to prevent blocking
+                    try:
+                        task = self.gui_queue.get_nowait()
+                        task_type, args = task
+                        
+                        if task_type == "insert":
+                            text, tag = args
+                            self.console.insert(END, text, tag or ())
+                            if self._should_auto_scroll():
+                                self.console.see(END)
+                        
+                        elif task_type == "status":
+                            text = args[0]
+                            self.status_label.config(text=text)
+                        
+                        elif task_type == "animation":
+                            animation_type, message = args
+                            self._update_animation_display(animation_type, message)
+                        
+                        elif task_type == "stop_animation":
+                            self._stop_animation_display()
+                        
+                        elif task_type == "complete":
+                            callback = args[0] if args else None
+                            if callback:
+                                callback()
+                        
+                        elif task_type == "stop":
+                            # Shutdown signal
+                            return
+                        
+                        self.gui_queue.task_done()
+                        items_processed += 1
+                        
+                    except queue.Empty:
                         break
-                    
-                    task_type, args = task
-                    
-                    if task_type == "typewriter":
-                        self._execute_typewriter_effect(*args)
-                    elif task_type == "markdown":
-                        self._execute_markdown_display(*args)
-                    elif task_type == "insert":
-                        text, tag = args
-                        self._safe_console_insert(text, tag)
-                    
-                    self.display_queue.task_done()
-                    
-                except queue.Empty:
-                    continue
-                except Exception as e:
-                    print(f"Display worker error: {e}")
+                        
+            except Exception as e:
+                print(f"GUI queue processor error: {e}")
+            
+            # Schedule next check
+            self.console.after(50, process_gui_queue)  # Check every 50ms
         
-        self.display_worker_thread = threading.Thread(target=display_worker, daemon=True)
-        self.display_worker_thread.start()
+        # Start the processor
+        self.console.after(10, process_gui_queue)
+    
+    def _queue_gui_update(self, task_type, args):
+        """Thread-safe way to queue GUI updates"""
+        self.gui_queue.put((task_type, args))
     
     def _safe_console_insert(self, text, tag=None):
         """Thread-safe console insertion"""
-        def insert():
-            try:
-                self.console.insert(END, text, tag or ())
-                if self._should_auto_scroll():
-                    self.console.see(END)
-            except tk.TclError:
-                pass  # Widget might be destroyed
-        
-        self.console.after_idle(insert)
+        self._queue_gui_update("insert", (text, tag))
     
     def _safe_status_update(self, text):
         """Thread-safe status label update"""
-        def update():
-            try:
-                self.status_label.config(text=text)
-            except tk.TclError:
-                pass
-        
-        self.console.after_idle(update)
+        self._queue_gui_update("status", (text,))
+    
+    def _safe_animation_update(self, animation_type, message):
+        """Thread-safe animation update"""
+        self._queue_gui_update("animation", (animation_type, message))
+    
+    def _safe_complete_callback(self, callback):
+        """Thread-safe callback execution"""
+        if callback:
+            self._queue_gui_update("complete", (callback,))
+    
+    def _update_animation_display(self, animation_type, message):
+        """Update animation display on main thread"""
+        if animation_type == "thinking":
+            dots = ['', '.', '..', '...']
+            dot_count = getattr(self, '_thinking_dots', 0)
+            current_dots = dots[dot_count % len(dots)]
+            self.status_label.config(text=f"{message}{current_dots}")
+            self._thinking_dots = dot_count + 1
+            
+        elif animation_type == "working":
+            chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+            char_count = getattr(self, '_working_chars', 0)
+            char = chars[char_count % len(chars)]
+            self.status_label.config(text=f"{message} {char}")
+            self._working_chars = char_count + 1
+            
+        elif animation_type == "typing":
+            states = ['⌨️ ', '⌨️.', '⌨️..', '⌨️...']
+            state_count = getattr(self, '_typing_states', 0)
+            state = states[state_count % len(states)]
+            self.status_label.config(text=f"{message} {state}")
+            self._typing_states = state_count + 1
+    
+    def _stop_animation_display(self):
+        """Stop animation display on main thread"""
+        # Reset animation counters
+        self._thinking_dots = 0
+        self._working_chars = 0
+        self._typing_states = 0
     
     def show_thinking_dots(self, base_message="Mini thinking"):
         """Start async thinking dots animation"""
@@ -135,15 +189,8 @@ class AsyncSmoothResponseDisplay:
         self.stop_animation_event.clear()
         
         def animate_thinking():
-            dots = ['', '.', '..', '...']
-            dot_index = 0
-            
             while not self.stop_animation_event.is_set():
-                current_dots = dots[dot_index % len(dots)]
-                self._safe_status_update(f"{base_message}{current_dots}")
-                dot_index += 1
-                
-                # Non-blocking sleep
+                self._safe_animation_update("thinking", base_message)
                 if self.stop_animation_event.wait(0.4):
                     break
         
@@ -158,15 +205,8 @@ class AsyncSmoothResponseDisplay:
         self.stop_animation_event.clear()
         
         def animate_working():
-            chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-            char_index = 0
-            
             while not self.stop_animation_event.is_set():
-                char = chars[char_index % len(chars)]
-                self._safe_status_update(f"{message} {char}")
-                char_index += 1
-                
-                # Non-blocking sleep
+                self._safe_animation_update("working", message)
                 if self.stop_animation_event.wait(0.15):
                     break
         
@@ -181,14 +221,8 @@ class AsyncSmoothResponseDisplay:
         self.stop_animation_event.clear()
         
         def animate_typing():
-            states = ['⌨️ ', '⌨️.', '⌨️..', '⌨️...']
-            state_index = 0
-            
             while not self.stop_animation_event.is_set():
-                state = states[state_index % len(states)]
-                self._safe_status_update(f"{message} {state}")
-                state_index += 1
-                
+                self._safe_animation_update("typing", message)
                 if self.stop_animation_event.wait(0.3):
                     break
         
@@ -201,8 +235,9 @@ class AsyncSmoothResponseDisplay:
         if self.animation_active:
             self.animation_active = False
             self.stop_animation_event.set()
+            self._queue_gui_update("stop_animation", ())
             
-            if self.animation_thread and self.animation_thread.is_alive():
+            if hasattr(self, 'animation_thread') and self.animation_thread and self.animation_thread.is_alive():
                 self.animation_thread.join(timeout=0.5)
     
     def display_response_naturally(self, response_text, prefix="Mini: ", on_complete_callback=None):
@@ -213,8 +248,7 @@ class AsyncSmoothResponseDisplay:
         response_text = response_text.strip()
         if not response_text:
             self._safe_status_update("Ready")
-            if on_complete_callback:
-                self.console.after_idle(on_complete_callback)
+            self._safe_complete_callback(on_complete_callback)
             return
         
         # Insert prefix immediately
@@ -223,11 +257,27 @@ class AsyncSmoothResponseDisplay:
         # Start typing animation
         self.show_typing("Mini responding")
         
-        # Queue the response display
-        if self._has_markdown_formatting(response_text):
-            self.display_queue.put(("markdown", (response_text, on_complete_callback)))
-        else:
-            self.display_queue.put(("typewriter", (response_text, on_complete_callback)))
+        # Execute display in background
+        def execute_display():
+            try:
+                if self._has_markdown_formatting(response_text):
+                    self._execute_markdown_display(response_text)
+                else:
+                    self._execute_typewriter_effect(response_text)
+                
+                # Finish response
+                self._safe_console_insert('\n')
+                self.stop_animation()
+                self._safe_status_update("Ready")
+                self._safe_complete_callback(on_complete_callback)
+                
+            except Exception as e:
+                print(f"Display execution error: {e}")
+                self.stop_animation()
+                self._safe_status_update("Ready")
+                self._safe_complete_callback(on_complete_callback)
+        
+        self.executor.submit(execute_display)
     
     def _has_markdown_formatting(self, text):
         """Quick check for common markdown patterns"""
@@ -245,7 +295,7 @@ class AsyncSmoothResponseDisplay:
                 return True
         return False
     
-    def _execute_markdown_display(self, text, on_complete_callback=None):
+    def _execute_markdown_display(self, text):
         """Execute markdown display in background"""
         lines = text.split('\n')
         in_code_block = False
@@ -281,10 +331,6 @@ class AsyncSmoothResponseDisplay:
         if code_lines:
             code_text = '\n'.join(code_lines)
             self._safe_console_insert(code_text + '\n', "code_block")
-        
-        # Finish up
-        self._safe_console_insert('\n')
-        self._finish_response(on_complete_callback)
     
     def _insert_line_with_formatting_async(self, line):
         """Insert line with formatting (async-safe)"""
@@ -343,7 +389,7 @@ class AsyncSmoothResponseDisplay:
                 self._safe_console_insert(remaining)
                 break
     
-    def _execute_typewriter_effect(self, text, on_complete_callback=None):
+    def _execute_typewriter_effect(self, text):
         """Execute typewriter effect in background"""
         chunks = self._split_into_natural_chunks(text)
         
@@ -371,8 +417,6 @@ class AsyncSmoothResponseDisplay:
             if chunk != chunks[-1]:
                 self._safe_console_insert(' ')
                 time.sleep(0.1)
-        
-        self._finish_response(on_complete_callback)
     
     def _split_into_natural_chunks(self, text):
         """Split text into natural reading chunks"""
@@ -418,15 +462,6 @@ class AsyncSmoothResponseDisplay:
             import random
             return base_delay + random.randint(-5, 8)
     
-    def _finish_response(self, on_complete_callback=None):
-        """Finish response display and trigger callback."""
-        self._safe_console_insert('\n')
-        self.stop_animation()
-        self._safe_status_update("Ready")
-        if on_complete_callback:
-            # Use after_idle to ensure it runs on the main thread after all other UI events
-            self.console.after_idle(on_complete_callback)
-    
     def _should_auto_scroll(self):
         """Check if should auto-scroll"""
         if not self.auto_scroll_enabled:
@@ -460,14 +495,6 @@ class AsyncSmoothResponseDisplay:
         
         if not tool_calls:
             content = response.get("content", "I'm not sure how to respond.")
-            # We need to handle the callback here for simple responses
-            # The typewriter/markdown methods will need to be adapted to call it.
-            # For now, let's create a wrapper for the callback.
-            def finish_with_callback():
-                self._finish_response(on_complete_callback)
-
-            # This is a simplification; ideally, the typewriter/markdown methods would accept the callback.
-            # Let's modify them to do so.
             self.display_response_naturally(content, on_complete_callback=on_complete_callback)
             return
         
@@ -481,43 +508,57 @@ class AsyncSmoothResponseDisplay:
                 # Import here to avoid circular imports
                 from ..capabilities.agent import handle_agent_response
                 
-                # Capture console output during tool execution
-                captured_output = []
-                
-                # Temporarily override console insert to capture output
-                original_insert = self.console.insert
-                def capturing_insert(pos, text, tag=None):
-                    if pos == tk.END:
-                        captured_output.append((text, tag))
-                    else:
-                        original_insert(pos, text, tag)
-                
-                self.console.insert = capturing_insert
-                
-                try:
-                    handle_agent_response(response, session_history, self.console, self.status_label)
-                finally:
-                    self.console.insert = original_insert
-                
-                # Display captured output with typewriter effect
-                if captured_output:
-                    time.sleep(0.5)  # Brief pause
-                    self.stop_animation()
-                    self.show_typing("Mini finalizing")
+                # Create a custom console wrapper to capture output
+                class OutputCapture:
+                    def __init__(self, display_handler):
+                        self.display_handler = display_handler
+                        self.captured = []
                     
-                    for text, tag in captured_output:
-                        if text.strip():
-                            self._safe_console_insert(text, tag)
-                            time.sleep(0.05)  # Small delay between outputs
+                    def insert(self, pos, text, tag=None):
+                        if pos == tk.END:
+                            self.captured.append((text, tag))
+                            self.display_handler._safe_console_insert(text, tag)
+                        # Ignore other positions for now
+                    
+                    def see(self, pos):
+                        # Auto-scroll is handled by the queue processor
+                        pass
+                    
+                    def after(self, delay, callback):
+                        # For simple callbacks, execute immediately in thread
+                        # For GUI updates, this should go through the queue
+                        if hasattr(callback, '__call__'):
+                            try:
+                                callback()
+                            except:
+                                pass
+                    
+                    def after_idle(self, callback):
+                        # Similar handling for after_idle
+                        if hasattr(callback, '__call__'):
+                            try:
+                                callback()
+                            except:
+                                pass
                 
-                self._finish_response(on_complete_callback)
+                # Create wrapped console
+                wrapped_console = OutputCapture(self)
+                
+                # Execute agent response
+                handle_agent_response(response, session_history, wrapped_console, self.status_label)
+                
+                # Finish up
+                time.sleep(0.2)  # Brief pause before finishing
+                self.stop_animation()
+                self._safe_status_update("Ready")
+                self._safe_complete_callback(on_complete_callback)
                 
             except Exception as e:
+                print(f"Agent execution error: {e}")
                 self.stop_animation()
                 self._safe_console_insert(f"\n❌ Error during tool execution: {str(e)}\n", "error")
                 self._safe_status_update("Ready")
-                if on_complete_callback:
-                    self.console.after_idle(on_complete_callback)
+                self._safe_complete_callback(on_complete_callback)
         
         # Run agent work in background
         self.executor.submit(execute_agent_work)
@@ -525,7 +566,11 @@ class AsyncSmoothResponseDisplay:
     def shutdown(self):
         """Clean shutdown of async components"""
         self.stop_animation()
-        self.display_queue.put(None)  # Signal shutdown
+        
+        # Signal GUI queue processor to stop
+        self._queue_gui_update("stop", ())
+        
+        # Shutdown executor
         self.executor.shutdown(wait=False)
 
 

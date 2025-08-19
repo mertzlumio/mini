@@ -108,7 +108,7 @@ def handle_command(cmd, console, status_label, entry, on_complete_callback=None)
     def command_complete():
         """Function to call when any command is done."""
         if on_complete_callback:
-            console.after(0, on_complete_callback)
+            on_complete_callback()  # Direct call since we're on main thread for sync commands
 
     # Memory-specific commands (these are synchronous and finish immediately)
     if cmd.lower().startswith(("/search", "/find", "/remember")):
@@ -182,7 +182,7 @@ def handle_command(cmd, console, status_label, entry, on_complete_callback=None)
     add_to_session_history(user_message)
 
     def process_in_background():
-        """Process API call in background thread"""
+        """Process API call in background thread with proper error handling"""
         try:
             # Get response from API
             response = call_mistral_api(history)
@@ -190,17 +190,18 @@ def handle_command(cmd, console, status_label, entry, on_complete_callback=None)
             # Add assistant response to memory
             add_to_session_history(response)
             
-            # Schedule UI update on main thread, passing the final callback
-            console.after(0, lambda: response_display.display_agent_response_smoothly(
+            # Use the async display system to show response and handle completion
+            response_display.display_agent_response_smoothly(
                 response, memory_manager.working_memory, on_complete_callback
-            ))
+            )
 
         except requests.exceptions.HTTPError as e:
-            # Handle API errors on main thread
-            console.after(0, lambda: handle_api_error_async(e, response_display, on_complete_callback))
+            # Handle API errors using the async display system
+            handle_api_error_async(e, response_display, on_complete_callback)
+            
         except Exception as e:
-            # Handle general errors on main thread  
-            console.after(0, lambda: handle_general_error_async(e, response_display, on_complete_callback))
+            # Handle general errors using the async display system
+            handle_general_error_async(e, response_display, on_complete_callback)
 
     # Process API call in background thread
     thread = threading.Thread(target=process_in_background, daemon=True)
@@ -208,7 +209,7 @@ def handle_command(cmd, console, status_label, entry, on_complete_callback=None)
 
 
 def handle_api_error_async(e, response_display, on_complete_callback=None):
-    """Handle API errors with async display"""
+    """Handle API errors with async display - thread safe version"""
     response_display.stop_animation()
     
     if hasattr(e, 'response') and e.response:
@@ -220,18 +221,15 @@ def handle_api_error_async(e, response_display, on_complete_callback=None):
     
     response_display._safe_console_insert(error_text, "error")
     response_display._safe_status_update("Ready")
-    if on_complete_callback:
-        response_display.console.after(0, on_complete_callback)
+    response_display._safe_complete_callback(on_complete_callback)
 
 
 def handle_general_error_async(e, response_display, on_complete_callback=None):
-    """Handle general errors with async display"""
+    """Handle general errors with async display - thread safe version"""
     response_display.stop_animation()
     response_display._safe_console_insert(f"❌ Error: {str(e)}\n", "error")
     response_display._safe_status_update("Ready")
-    if on_complete_callback:
-        response_display.console.after(0, on_complete_callback)
-
+    response_display._safe_complete_callback(on_complete_callback)
 
 
 # Register exit handler

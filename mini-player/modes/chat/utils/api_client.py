@@ -67,7 +67,7 @@ def call_mistral_api(history, min_interval=2.0):
     for attempt in range(max_retries):
         try:
             print(f"DEBUG: Making text API call (attempt {attempt + 1}) at {time.time()}")
-            response = requests.post(MISTRAL_URL, headers=headers, json=data, timeout=30)
+            response = requests.post(MISTRAL_URL, headers=headers, json=data, timeout=60)
             
             if response.status_code == 429:
                 print(f"DEBUG: Hit rate limit (429), waiting longer...")
