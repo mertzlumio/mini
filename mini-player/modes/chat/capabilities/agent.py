@@ -1,4 +1,3 @@
-# Updated modes/chat/capabilities/agent.py - FIXED Vision Integration
 import json
 from tkinter import END
 from . import task_manager, web_search, file_reader, memory_tools, visual_assistant
@@ -39,9 +38,6 @@ def handle_agent_response(response, session_history, console, status_label):
         content = response.get("content", "I'm not sure how to respond.")
         console.insert(END, f"{content}\n")
         return
-    
-    # AI autonomously decided to use tools
-    #console.insert(END, "🛠️ Agent using tools...\n", "accent")
     
     # Track if we captured any visual content and store the image data
     captured_image_data = None

@@ -37,7 +37,7 @@ def toggle_window(root):
     is_visible = not is_visible
 
 def toggle_size(root):
-    """Toggle between default and expanded window size"""
+    """Toggle between default and expanded window size with adaptive padding"""
     global is_expanded
     is_expanded = toggle_window_size(root, is_expanded)
     
@@ -51,6 +51,8 @@ def toggle_size(root):
         # Adjust input field for expanded mode
         if entry_widget:
             entry_widget.config(font=("JetBrains Mono", 14, "bold"))  # Larger font
+            # Update input padding for expanded mode
+            entry_widget.pack_configure(padx=(1, 4), pady=0, ipady=0)
     else:
         # Compact mode - icon points northwest (up-left) 
         size_toggle_btn.config(text="⇱")  # Northwest arrow
@@ -60,6 +62,8 @@ def toggle_size(root):
         # Reset input field to default
         if entry_widget:
             entry_widget.config(font=("JetBrains Mono", 12, "bold"))  # Default font
+            # Reset input padding to default
+            entry_widget.pack_configure(padx=(2, 5), pady=0, ipady=0)
 
 
 def start_drag(event):
@@ -303,7 +307,7 @@ def start_app():
         font=("JetBrains Mono", 12, "bold"), selectbackground=THEME["accent"],
         selectforeground=THEME["bg"], insertwidth=3
     )
-    entry.pack(fill=tk.X, expand=True, padx=(2, 15), pady=8, ipady=3)
+    entry.pack(fill=tk.X, expand=True, padx=(2, 15), pady=0, ipady=0)
     
     # Store global reference
     entry_widget = entry

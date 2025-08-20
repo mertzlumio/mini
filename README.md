@@ -30,23 +30,6 @@ Get your API key: [Mistral AI Console](https://console.mistral.ai/)
 
 ## Interface Preview
 
-```
-┌─────────────────────────────────────┐
-│ [CHAT]                       Ready  │
-├─────────────────────────────────────┤
-│ > hello Mini                        │
-│                                     │
-│ Mini: Hello! I'm ready to assist    │
-│ you. I can help with commands,      │
-│ questions, tasks, and more.         │
-│                                     │
-│ Modes: BASH → CHAT → NOTES → MUSIC │
-│ Ctrl+M to switch modes              │
-│                                     │
-│ > █                                 │
-└─────────────────────────────────────┘
-```
-
 ![Mini-Player Console Interface](/screenshots/screenshot_20250810_202552.png)
 
-
+![Mini-Player Console Interface](/screenshots/20250819_22h21m23s_grim.png)
