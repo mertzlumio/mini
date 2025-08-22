@@ -15,7 +15,7 @@ git clone https://github.com/mertzlumio/mini.git
 
 cd mini
 
-python setup_and_run.py
+python setup&run.py
 ```
 
 This script automatically:
