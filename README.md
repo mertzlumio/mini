@@ -1,6 +1,6 @@
 # Mini-Player
 
-A compact, always-on-top utility window that packs bash, chat, notes, and music playback 
+A compact, always-on-top utility window that packs bash, chat, notes, and music playback with toggleable bigger size
 
 ![Python](https://img.shields.io/badge/python-3.7+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
