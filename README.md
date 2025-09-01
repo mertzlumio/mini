@@ -22,7 +22,7 @@ This script automatically:
 - Creates a virtual environment
 - Installs all dependencies
 - Creates .env file to be configured
-- Configures global hotkeys
+- Asks for Mistral API key, so get it from the Mistral Console
 - Launches Mini-Player
 
 Get your API key: [Mistral AI Console](https://console.mistral.ai/)
