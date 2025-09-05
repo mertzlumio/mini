@@ -27,7 +27,23 @@ This script automatically:
 
 Get your API key: [Mistral AI Console](https://console.mistral.ai/)
 ---
-
+## Current Modes
+1. Shell: to excute shell commnads
+2. Notes: to add notes quickly
+3. Music-player: to play music with adding playlist
+4. Chat: to use LLM integrated chat with agentic tooling
+---
+## Current Agentic Capabilites
+1. Web Search: to pull infromation from web on the go
+2. Visual Assistant: to chat with screen context (still immature)
+3. Bash Executor: to execute system commnads (not well integrated yet)
+4. Memory: to store and process chats intelligently (good yet still need improvements)
+---
+## Features for Future
+1. Seamless API plugin from various sources
+2. Mulito-model routing for chat
+3. Self behaviour of the assistant
+---
 ## Interface Preview
 
 ![Mini-Player Console Interface](/screenshots/20250821_10h36m29s_grim.png)
