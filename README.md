@@ -41,7 +41,7 @@ Get your API key: [Mistral AI Console](https://console.mistral.ai/)
 ---
 ## Features for Future
 1. Seamless API plugin from various sources
-2. Mulito-model routing for chat
+2. Muliti-model routing for chat
 3. Self behaviour of the assistant
 ---
 ## Interface Preview
