@@ -30,8 +30,8 @@ Get your API key: [Mistral AI Console](https://console.mistral.ai/)
 ## Current Modes
 1. Shell: to excute shell commnads
 2. Notes: to add notes quickly
-3. Music-player: to play music with adding playlist
-4. Chat: to use LLM integrated chat with agentic tooling
+3. Music-player: to play music with any playlist
+4. Chat: to use LLM integrated assistant with agentic tooling
 ---
 ## Current Agentic Capabilites
 1. Web Search: to pull infromation from web on the go
