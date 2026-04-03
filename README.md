@@ -28,7 +28,7 @@ This script automatically:
 Get your API key: [Mistral AI Console](https://console.mistral.ai/)
 ---
 ## Current Modes
-1. Shell: to excute shell commnads
+1. Shell: to excute shell commands
 2. Notes: to add notes quickly
 3. Music-player: to play music with any playlist
 4. Chat: to use LLM integrated assistant with agentic tooling
